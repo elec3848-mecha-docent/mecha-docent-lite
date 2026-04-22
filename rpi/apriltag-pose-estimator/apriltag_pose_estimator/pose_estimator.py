@@ -122,10 +122,6 @@ class PoseEstimator:
                 "pupil-apriltags library not available. Install with: pip install pupil-apriltags"
             )
 
-        # Correct for upside-down camera mounting
-        if self.rotate_180:
-            frame = cv2.rotate(frame, cv2.ROTATE_180)
-
         # Convert to grayscale if needed
         if len(frame.shape) == 3:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)

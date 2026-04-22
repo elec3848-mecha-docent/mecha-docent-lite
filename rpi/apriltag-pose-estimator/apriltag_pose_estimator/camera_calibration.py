@@ -231,6 +231,8 @@ class CameraCalibration:
             while capture_count < num_images:
                 if use_picamera2:
                     frame = pc2.capture_array()
+                    # Picamera2 returns RGB, OpenCV wants BGR
+                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 else:
                     ok, frame = cap.read()
                     if not ok:
@@ -372,9 +374,11 @@ def _build_cli_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--rotate-180",
-        action="store_true",
-        help="Rotate each frame 180° before processing (camera mounted upside down)",
+        action="store_false",
+        dest="rotate_180",
+        help="Disable 180° frame rotation (enabled by default)",
     )
+    parser.set_defaults(rotate_180=True)
     return parser
 
 

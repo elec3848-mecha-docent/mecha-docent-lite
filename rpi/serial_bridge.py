@@ -48,6 +48,9 @@ class SerialBridge:
             timeout=0.0,
             write_timeout=0.25,
         )
+        # Wait for Arduino reset and boot message
+        time.sleep(2.0)
+        self._serial.reset_input_buffer()
 
     def close(self) -> None:
         if self._serial is not None:

@@ -291,7 +291,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window-name", type=str, default="Live Navigation")
     parser.add_argument("--port", type=str, required=True, help="Serial port, e.g. COM6 or /dev/ttyUSB0")
     parser.add_argument("--baudrate", type=int, default=115200)
-    parser.add_argument("--ack-timeout", type=float, default=1.0)
+    parser.add_argument("--ack-timeout", type=float, default=2.0)
     parser.add_argument("--correction-rate-hz", type=float, default=15.0)
     parser.add_argument(
         "--picamera2",
@@ -300,9 +300,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--rotate-180",
-        action="store_true",
-        help="Rotate each frame 180° before processing (camera mounted upside down)",
+        action="store_false",
+        dest="rotate_180",
+        help="Disable 180° frame rotation (enabled by default)",
     )
+    parser.set_defaults(rotate_180=True)
     return parser
 
 
@@ -381,10 +383,14 @@ def main() -> None:
         while True:
             if args.picamera2:
                 frame = pc2.capture_array()
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             else:
                 ok, frame = cap.read()
                 if not ok:
                     continue
+
+            if args.rotate_180:
+                frame = cv2.rotate(frame, cv2.ROTATE_180)
 
             pose, _, detections = estimator.estimate_pose_details(frame)
 
