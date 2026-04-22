@@ -14,6 +14,21 @@ constexpr uint32_t IMU_CONTROL_HZ = 100UL;
 constexpr uint32_t IMU_CONTROL_PERIOD_US = 1000000UL / IMU_CONTROL_HZ;
 constexpr uint32_t MOTOR_CONTROL_HZ = 50UL;
 constexpr uint32_t MOTOR_CONTROL_PERIOD_US = 1000000UL / MOTOR_CONTROL_HZ;
+constexpr uint32_t STATUS_PUBLISH_HZ = 10UL;
+constexpr uint32_t STATUS_PUBLISH_PERIOD_MS = 1000UL / STATUS_PUBLISH_HZ;
+constexpr uint32_t POSE_CORRECTION_STALE_MS = 2500UL;
+
+// Serial bridge protocol
+constexpr size_t SERIAL_LINE_BUFFER_SIZE = 192;
+constexpr uint32_t TARGET_COMMAND_TIMEOUT_MS = 3000UL;
+
+// Navigation controller (normalized velocity outputs)
+constexpr float NAV_POSITION_KP = 0.90f;
+constexpr float NAV_YAW_KP = 1.40f;
+constexpr float NAV_MAX_VXY_NORM = 0.85f;
+constexpr float NAV_MAX_WZ_NORM = 0.75f;
+constexpr float NAV_TARGET_XY_TOL_M = 0.08f;
+constexpr float NAV_TARGET_YAW_TOL_RAD = 0.12f;
 
 // Simplified normalized control (vx/vy/wz each in [-1.0, 1.0])
 constexpr float COMMAND_DEADBAND = 0.02f;
@@ -27,6 +42,11 @@ constexpr float YAW_RATE_ERROR_DEADBAND = 0.03f;
 constexpr int YAW_NUDGE_PWM_STEP = 2;
 constexpr int YAW_NUDGE_PWM_DECAY_STEP = 1;
 constexpr int YAW_NUDGE_PWM_MAX = 70;
+
+// Dead-reckoning scale from normalized command to pseudo physical units.
+// Tune these experimentally if you need metric consistency.
+constexpr float NORM_TO_MPS = 0.55f;
+constexpr float NORM_TO_RAD_S = 2.20f;
 
 // test_tuning constants
 constexpr int TUNING_SWEEP_PWM_START = 0;

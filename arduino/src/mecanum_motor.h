@@ -1,6 +1,8 @@
 #ifndef MECANUM_MOTOR_H
 #define MECANUM_MOTOR_H
 
+#include "imu_manager.h"
+
 /**
  * @class MecanumMotor
  * @brief Handles kinematic transformation and hardware control for a 4-wheel mecanum base.

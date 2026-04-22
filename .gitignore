@@ -1,0 +1,43 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# VS Code local workspace settings
+.vscode/
+
+# Python cache / tooling
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# PlatformIO build artifacts
+**/.pio/
+**/.piolibdeps/
+**/.pioenvs/
+
+# Logs and temporary files
+*.log
+*.tmp
