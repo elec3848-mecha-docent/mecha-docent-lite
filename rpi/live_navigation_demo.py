@@ -27,6 +27,11 @@ from typing import Any, Iterable, Mapping, Optional, Tuple
 import cv2
 import numpy as np
 
+try:
+    from picamera2 import Picamera2
+except ImportError:
+    Picamera2 = None
+
 # Consume the estimator as an external library from the local checkout.
 import sys
 
@@ -288,6 +293,16 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--baudrate", type=int, default=115200)
     parser.add_argument("--ack-timeout", type=float, default=1.0)
     parser.add_argument("--correction-rate-hz", type=float, default=15.0)
+    parser.add_argument(
+        "--picamera2",
+        action="store_true",
+        help="Use PiCamera2 instead of OpenCV VideoCapture",
+    )
+    parser.add_argument(
+        "--rotate-180",
+        action="store_true",
+        help="Rotate each frame 180° before processing (camera mounted upside down)",
+    )
     return parser
 
 
@@ -332,23 +347,30 @@ def main() -> None:
 
     calibration = CameraCalibration.from_yaml(str(args.calibration))
     tag_map = AprilTagMap.from_json(str(args.tag_map))
-    estimator = PoseEstimator(calibration, tag_map)
+    estimator = PoseEstimator(calibration, tag_map, rotate_180=args.rotate_180)
     all_tags = estimator.tag_map.get_all_tags()
 
     bridge = SerialBridge(args.port, baudrate=args.baudrate, ack_timeout_s=args.ack_timeout)
     bridge.open()
 
-    cap = cv2.VideoCapture(args.camera_index)
-    if not cap.isOpened():
-        bridge.close()
-        raise RuntimeError(f"Could not open camera index {args.camera_index}")
+    if args.picamera2:
+        if Picamera2 is None:
+            bridge.close()
+            raise RuntimeError("picamera2 package is not installed.")
+        pc2 = Picamera2()
+        pc2.start()
+    else:
+        cap = cv2.VideoCapture(args.camera_index)
+        if not cap.isOpened():
+            bridge.close()
+            raise RuntimeError(f"Could not open camera index {args.camera_index}")
 
     command_queue: queue.Queue[str] = queue.Queue()
     stop_event = threading.Event()
     input_thread = threading.Thread(target=_stdin_reader, args=(stop_event, command_queue), daemon=True)
     input_thread.start()
 
-    logger.info("Live navigation started. Press q in video window to quit.")
+    logger.info("Live navigation started using %s. Press q in video window to quit.", "PiCamera2" if args.picamera2 else "OpenCV")
 
     current_target: Optional[Tuple[float, float, float]] = None
     last_ack: Optional[TargetAckResult] = None
@@ -357,9 +379,12 @@ def main() -> None:
 
     try:
         while True:
-            ok, frame = cap.read()
-            if not ok:
-                continue
+            if args.picamera2:
+                frame = pc2.capture_array()
+            else:
+                ok, frame = cap.read()
+                if not ok:
+                    continue
 
             pose, _, detections = estimator.estimate_pose_details(frame)
 
@@ -439,7 +464,10 @@ def main() -> None:
                 break
     finally:
         stop_event.set()
-        cap.release()
+        if args.picamera2:
+            pc2.stop()
+        else:
+            cap.release()
         bridge.close()
         cv2.destroyAllWindows()
 

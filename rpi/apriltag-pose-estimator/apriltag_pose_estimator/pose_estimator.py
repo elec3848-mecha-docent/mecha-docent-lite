@@ -56,6 +56,7 @@ class PoseEstimator:
         calibration: CameraCalibration,
         tag_map: AprilTagMap,
         tag_height: float = 0.05,
+        rotate_180: bool = True,
     ):
         """
         Initialize pose estimator.
@@ -66,6 +67,8 @@ class PoseEstimator:
             tag_height: Physical height of AprilTag (meters), used for
                        constructing 3D corners on wall. Tags assumed to be
                        square with side length given in tag_map.
+            rotate_180: If True, rotate each frame 180° before detection.
+                        Use when the camera is mounted upside down.
 
         Raises:
             ValueError: If calibration or tag_map is invalid.
@@ -78,6 +81,7 @@ class PoseEstimator:
         self.calibration = calibration
         self.tag_map = tag_map
         self.tag_height = float(tag_height)
+        self.rotate_180 = rotate_180
 
         # Initialize with zero pose; no confidence
         self._last_pose = PoseEstimate(x=0.0, y=0.0, yaw=0.0, confidence=0.0)
@@ -117,6 +121,10 @@ class PoseEstimator:
             raise ImportError(
                 "pupil-apriltags library not available. Install with: pip install pupil-apriltags"
             )
+
+        # Correct for upside-down camera mounting
+        if self.rotate_180:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
 
         # Convert to grayscale if needed
         if len(frame.shape) == 3:

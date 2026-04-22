@@ -4,11 +4,16 @@ Camera calibration handling: intrinsics, distortion coefficients, and file I/O.
 
 import argparse
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
 import yaml
+
+try:
+    from picamera2 import Picamera2
+except ImportError:
+    Picamera2 = None
 
 
 class CameraCalibration:
@@ -163,27 +168,32 @@ class CameraCalibration:
     @classmethod
     def calibrate_from_camera(
         cls,
-        camera_index: int = 0,
+        camera_index: Union[int, str] = 0,
         chessboard_size: Tuple[int, int] = (9, 6),
         square_size: float = 0.024,
         num_images: int = 20,
         output_yaml_path: Optional[str] = None,
         window_name: str = "Camera Calibration",
+        use_picamera2: bool = False,
+        rotate_180: bool = True,
     ) -> "CameraCalibration":
         """
-        Interactively calibrate camera using a live OpenCV stream.
+        Interactively calibrate camera using a live stream.
 
         Controls:
         - SPACE: capture a frame when chessboard is detected
         - Q: quit capture and run calibration if enough samples exist
 
         Args:
-            camera_index: OpenCV camera index.
+            camera_index: OpenCV camera index or PiCamera2 configuration.
             chessboard_size: Number of inner corners (cols, rows).
             square_size: Chessboard square size in meters.
             num_images: Number of successful captures to collect.
             output_yaml_path: Optional output path to save calibration YAML.
             window_name: Name of the OpenCV preview window.
+            use_picamera2: Whether to use Picamera2 instead of OpenCV VideoCapture.
+            rotate_180: If True, rotate each captured frame 180° before processing.
+                        Use when the camera is mounted upside down.
 
         Returns:
             Calibrated CameraCalibration instance.
@@ -195,26 +205,39 @@ class CameraCalibration:
         if num_images < 3:
             raise ValueError("num_images must be at least 3")
 
+        if use_picamera2 and Picamera2 is None:
+            raise RuntimeError("picamera2 package is not installed.")
+
         objp = cls._build_chessboard_object_points(chessboard_size, square_size)
         object_points: List[np.ndarray] = []
         image_points: List[np.ndarray] = []
 
-        cap = cv2.VideoCapture(camera_index)
-        if not cap.isOpened():
-            raise RuntimeError(f"Could not open camera index {camera_index}")
+        if use_picamera2:
+            pc2 = Picamera2()
+            pc2.start()
+        else:
+            cap = cv2.VideoCapture(camera_index)
+            if not cap.isOpened():
+                raise RuntimeError(f"Could not open camera index {camera_index}")
 
         image_size: Optional[Tuple[int, int]] = None
         capture_count = 0
 
-        print("Starting interactive calibration capture...")
+        print(f"Starting interactive calibration capture (using {'PiCamera2' if use_picamera2 else 'OpenCV'})...")
         print("Press SPACE to capture when chessboard is detected.")
         print("Press Q to finish and calibrate.")
 
         try:
             while capture_count < num_images:
-                ok, frame = cap.read()
-                if not ok:
-                    continue
+                if use_picamera2:
+                    frame = pc2.capture_array()
+                else:
+                    ok, frame = cap.read()
+                    if not ok:
+                        continue
+
+                if rotate_180:
+                    frame = cv2.rotate(frame, cv2.ROTATE_180)
 
                 if image_size is None:
                     image_size = (frame.shape[1], frame.shape[0])
@@ -284,7 +307,10 @@ class CameraCalibration:
                     capture_count += 1
                     print(f"Captured frame {capture_count}/{num_images}")
         finally:
-            cap.release()
+            if use_picamera2:
+                pc2.stop()
+            else:
+                cap.release()
             cv2.destroyAllWindows()
 
         if image_size is None or len(image_points) < 3:
@@ -339,6 +365,16 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         default="config/camera_calibration_rpi.yaml",
         help="Output YAML path",
     )
+    parser.add_argument(
+        "--picamera2",
+        action="store_true",
+        help="Use PiCamera2 instead of OpenCV VideoCapture",
+    )
+    parser.add_argument(
+        "--rotate-180",
+        action="store_true",
+        help="Rotate each frame 180° before processing (camera mounted upside down)",
+    )
     return parser
 
 
@@ -350,6 +386,8 @@ def main() -> None:
         square_size=args.square_size,
         num_images=args.num_images,
         output_yaml_path=args.output,
+        use_picamera2=args.picamera2,
+        rotate_180=args.rotate_180,
     )
 
 

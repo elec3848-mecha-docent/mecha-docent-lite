@@ -17,6 +17,11 @@ from typing import Any, Iterable, Mapping, Tuple
 import cv2
 import numpy as np
 
+try:
+    from picamera2 import Picamera2
+except ImportError:
+    Picamera2 = None
+
 from apriltag_pose_estimator import AprilTagMap, CameraCalibration, PoseEstimator
 from apriltag_pose_estimator.tag_map import TagDefinition
 
@@ -255,6 +260,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default="Live Localization",
         help="OpenCV display window name",
     )
+    parser.add_argument(
+        "--picamera2",
+        action="store_true",
+        help="Use PiCamera2 instead of OpenCV VideoCapture",
+    )
+    parser.add_argument(
+        "--rotate-180",
+        action="store_true",
+        help="Rotate each frame 180° before processing (camera mounted upside down)",
+    )
     return parser
 
 
@@ -321,13 +336,19 @@ def main() -> None:
 
     calibration = CameraCalibration.from_yaml(str(args.calibration))
     tag_map = AprilTagMap.from_json(str(args.tag_map))
-    estimator = PoseEstimator(calibration, tag_map)
+    estimator = PoseEstimator(calibration, tag_map, rotate_180=args.rotate_180)
 
-    cap = cv2.VideoCapture(args.camera_index)
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open camera index {args.camera_index}")
+    if args.picamera2:
+        if Picamera2 is None:
+            raise RuntimeError("picamera2 package is not installed.")
+        pc2 = Picamera2()
+        pc2.start()
+    else:
+        cap = cv2.VideoCapture(args.camera_index)
+        if not cap.isOpened():
+            raise RuntimeError(f"Could not open camera index {args.camera_index}")
 
-    logger.info("Live localization started.")
+    logger.info("Live localization started using %s.", "PiCamera2" if args.picamera2 else "OpenCV")
     logger.info("Press 'q' to quit.")
 
     all_tags = estimator.tag_map.get_all_tags()
@@ -336,9 +357,12 @@ def main() -> None:
 
     try:
         while True:
-            ok, frame = cap.read()
-            if not ok:
-                continue
+            if args.picamera2:
+                frame = pc2.capture_array()
+            else:
+                ok, frame = cap.read()
+                if not ok:
+                    continue
 
             # PoseEstimator tracks last known pose internally when tags drop out.
             pose, individual_poses, detections = estimator.estimate_pose_details(frame)
@@ -389,7 +413,10 @@ def main() -> None:
             if (cv2.waitKey(1) & 0xFF) == ord("q"):
                 break
     finally:
-        cap.release()
+        if args.picamera2:
+            pc2.stop()
+        else:
+            cap.release()
         cv2.destroyAllWindows()
 
 
