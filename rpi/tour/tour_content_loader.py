@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from tour_config import REQUIRED_PROMPT_KEYS, SCRIPT_CATEGORY_ORDER, TourPolicy
+from tour.tour_config import REQUIRED_PROMPT_KEYS, SCRIPT_CATEGORY_ORDER, TourPolicy
 
 
 @dataclass(frozen=True)

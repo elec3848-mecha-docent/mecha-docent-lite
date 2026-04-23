@@ -9,10 +9,8 @@ VAD_AGGRESSIVENESS = 3
 SILENCE_AFTER_SPEECH_SEC = 2
 MAX_RECORDING_SEC = 10
 
-sd.default.device = (1, 1)
 
-
-def record() -> np.ndarray:
+def record_until_silence() -> np.ndarray:
     import webrtcvad
 
     block_size = int(SAMPLE_RATE * BLOCK_DURATION_SEC)
@@ -61,6 +59,13 @@ def playback(audio: np.ndarray) -> None:
     print("Done.")
 
 
-if __name__ == "__main__":
-    audio = record()
+def run_audio_demo(input_device: int | None = None, output_device: int | None = None) -> None:
+    if input_device is not None or output_device is not None:
+        sd.default.device = (input_device, output_device)
+
+    audio = record_until_silence()
     playback(audio)
+
+
+if __name__ == "__main__":
+    run_audio_demo()

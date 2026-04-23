@@ -2,10 +2,10 @@ import re
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from stt import create_model, transcribe_from_microphone
-from tour_config import SCRIPT_CATEGORY_ORDER
-from tour_content_loader import ArtworkContent, ScriptSections, load_tour_content
-from tts import create_tts, speak_text
+from speech.stt import create_model, transcribe_from_microphone
+from tour.tour_config import SCRIPT_CATEGORY_ORDER
+from tour.tour_content_loader import ArtworkContent, ScriptSections, load_tour_content
+from speech.tts import create_tts, speak_text
 
 
 class State(Enum):

@@ -14,9 +14,6 @@ DEFAULT_SILENCE_AFTER_SPEECH_SEC = 2
 DEFAULT_MAX_RECORDING_SEC = 30
 DEFAULT_VAD_AGGRESSIVENESS = 3  # 0 (least) to 3 (most aggressive)
 
-
-sd.default.device = (1, 1)
-
 def create_model(model_size: str = DEFAULT_MODEL_SIZE) -> WhisperModel:
     return WhisperModel(model_size, device="cpu", compute_type="int8")
 
@@ -95,6 +92,7 @@ def transcribe_audio(
 
 def transcribe_from_microphone(
     model: WhisperModel | None = None,
+    input_device: int | None = None,
     sample_rate: int = DEFAULT_SAMPLE_RATE,
     block_duration_sec: float = DEFAULT_BLOCK_DURATION_SEC,
     silence_after_speech_sec: float = DEFAULT_SILENCE_AFTER_SPEECH_SEC,
@@ -103,6 +101,9 @@ def transcribe_from_microphone(
     language: str = "en",
     beam_size: int = 5,
 ) -> str:
+    if input_device is not None:
+        sd.default.device = (input_device, None)
+
     audio = record_until_silence(
         sample_rate=sample_rate,
         block_duration_sec=block_duration_sec,

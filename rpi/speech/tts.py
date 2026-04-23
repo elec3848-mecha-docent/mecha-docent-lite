@@ -7,9 +7,6 @@ from supertonic import TTS
 DEFAULT_VOICE_NAME = "F4"
 DEFAULT_SAMPLE_RATE = 48000
 
-
-sd.default.device = (1, 1)
-
 def create_tts(auto_download: bool = True) -> TTS:
     return TTS(auto_download=auto_download)
 
@@ -42,10 +39,14 @@ def save_audio(wav: Any, output_path: str, tts: TTS | None = None) -> None:
 def speak_text(
     text: str,
     voice_name: str = DEFAULT_VOICE_NAME,
+    output_device: int | None = None,
     sample_rate: int = DEFAULT_SAMPLE_RATE,
     output_path: str | None = "output.wav",
     tts: TTS | None = None,
 ) -> tuple[float, float]:
+    if output_device is not None:
+        sd.default.device = (None, output_device)
+
     tts = tts or create_tts()
     wav, audio_duration, synthesis_duration = synthesize_text(
         text=text,
