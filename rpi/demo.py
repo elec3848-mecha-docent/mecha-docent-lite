@@ -21,8 +21,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output",
-        default="output.wav",
-        help="Output WAV file path. Use empty value to skip saving.",
+        default="",
+        help="Output WAV file path. Defaults to not saving.",
     )
     parser.add_argument(
         "--content-json",
