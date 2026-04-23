@@ -25,6 +25,13 @@ REQUIRED_PROMPT_KEYS: tuple[str, ...] = (
 
 
 @dataclass(frozen=True)
+class AudioConfig:
+    input_device: int | None = 1
+    output_device: int | None = 1
+    sample_rate: int = 48000
+
+
+@dataclass(frozen=True)
 class TourPolicy:
     max_clear_rejections: int = 2
     max_unclear_retries: int = 3

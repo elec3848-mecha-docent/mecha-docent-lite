@@ -1,4 +1,5 @@
 import re
+import random
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -158,10 +159,10 @@ class DeterministicTourGuide:
         artwork = self.route[self.current_index]
         sequence = self._build_sentence_sequence(artwork)
 
-        for category, sentence in sequence:
+        for i, (category, sentence) in enumerate(sequence):
             self._speak(sentence)
 
-            if self._needs_first_detailed_checkin(category):
+            if self._needs_first_detailed_checkin(category, sequence, i):
                 if self._run_mid_detailed_checkin():
                     return
 
@@ -329,16 +330,19 @@ class DeterministicTourGuide:
             return sections.history
         return sections.extra
 
-    def _needs_first_detailed_checkin(self, category: str) -> bool:
+    def _needs_first_detailed_checkin(self, category: str, sequence: list[tuple[str, str]], index: int) -> bool:
         if self.context.verbosity_level != "detailed":
             return False
         if self.context.first_detailed_checkin_done:
             return False
-        return category == "technique"
+        
+        # Check in after about halfway through the detailed explanation
+        return index >= len(sequence) // 2
 
     def _run_mid_detailed_checkin(self) -> bool:
         self.context.first_detailed_checkin_done = True
-        self._speak(self._line("mid_detailed_checkin"))
+        prompt = self._line("mid_detailed_checkin")
+        self._speak(prompt)
         text = self._listen()
 
         if self._is_stop(text):
@@ -399,9 +403,7 @@ class DeterministicTourGuide:
         return False
 
     def _line(self, key: str, **kwargs: str) -> str:
-        variants = self.content.prompt_variants[key]
-        cursor = self.variant_cursor.get(key, 0)
-        self.variant_cursor[key] = cursor + 1
+        template = random.choice(variants)
         template = variants[cursor % len(variants)]
         return template.format(**kwargs)
 

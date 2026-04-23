@@ -60,18 +60,16 @@
       "Let us head to {title}."
     ],
     "checkin_detailed": [
-      "Was that explanation too long?",
-      "Too much detail?",
-      "Is this a little too much?"
+      "I've got quite a bit more I could tell you about this piece. What do you think? Should I keep going or move to the next one?",
+      "There's more to explore here. Do you want to hear more details, or is it time for the next artwork?"
     ],
     "checkin_brief": [
-      "Would you like more details?",
-      "Do you want me to go deeper on the next one?",
-      "Should I add more context, or keep it short?"
+      "That's the gist of it. Want to hear more, or should we continue?",
+      "Should we keep talking about this, or move on to the next item?"
     ],
     "mid_detailed_checkin": [
-      "Quick check: is this level of detail working for you?",
-      "Before I continue, is this depth okay?"
+      "I hope I'm not being too talkative! Should I continue with the details, or would you prefer me to wrap it up?",
+      "Checking in—are you still interested in the deep dive, or should I speed things up?"
     ],
     "mid_detailed_continue": [
       "Great, I will continue.",

@@ -4,14 +4,16 @@ import webrtcvad
 from scipy.signal import resample_poly
 from math import gcd
 from faster_whisper import WhisperModel
+from tour.tour_config import AudioConfig
 
+DEFAULT_AUDIO_CONFIG = AudioConfig()
 WHISPER_SAMPLE_RATE = 16000
 
 DEFAULT_MODEL_SIZE = "tiny"
-DEFAULT_SAMPLE_RATE = 48000
+DEFAULT_SAMPLE_RATE = DEFAULT_AUDIO_CONFIG.sample_rate
 DEFAULT_BLOCK_DURATION_SEC = 0.03  # WebRTC VAD supports 10, 20, or 30 ms frames
 DEFAULT_SILENCE_AFTER_SPEECH_SEC = 2
-DEFAULT_MAX_RECORDING_SEC = 30
+DEFAULT_MAX_RECORDING_SEC = 10
 DEFAULT_VAD_AGGRESSIVENESS = 3  # 0 (least) to 3 (most aggressive)
 
 def create_model(model_size: str = DEFAULT_MODEL_SIZE) -> WhisperModel:
@@ -92,7 +94,7 @@ def transcribe_audio(
 
 def transcribe_from_microphone(
     model: WhisperModel | None = None,
-    input_device: int | None = None,
+    input_device: int | None = DEFAULT_AUDIO_CONFIG.input_device,
     sample_rate: int = DEFAULT_SAMPLE_RATE,
     block_duration_sec: float = DEFAULT_BLOCK_DURATION_SEC,
     silence_after_speech_sec: float = DEFAULT_SILENCE_AFTER_SPEECH_SEC,

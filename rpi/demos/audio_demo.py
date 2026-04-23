@@ -2,8 +2,10 @@
 
 import numpy as np
 import sounddevice as sd
+from tour.tour_config import AudioConfig
 
-SAMPLE_RATE = 48000
+DEFAULT_AUDIO_CONFIG = AudioConfig()
+SAMPLE_RATE = DEFAULT_AUDIO_CONFIG.sample_rate
 BLOCK_DURATION_SEC = 0.03  # 30 ms frames required by WebRTC VAD
 VAD_AGGRESSIVENESS = 3
 SILENCE_AFTER_SPEECH_SEC = 2
@@ -54,12 +56,16 @@ def playback(audio: np.ndarray) -> None:
         print("Nothing to play.")
         return
     print("Playing back...")
-    sd.play(audio, samplerate=SAMPLE_RATE)
+    # Explicitly use device from config to match working tone test
+    sd.play(audio, samplerate=SAMPLE_RATE, device=DEFAULT_AUDIO_CONFIG.output_device)
     sd.wait()
     print("Done.")
 
 
-def run_audio_demo(input_device: int | None = None, output_device: int | None = None) -> None:
+def run_audio_demo(
+    input_device: int | None = DEFAULT_AUDIO_CONFIG.input_device,
+    output_device: int | None = DEFAULT_AUDIO_CONFIG.output_device,
+) -> None:
     if input_device is not None or output_device is not None:
         sd.default.device = (input_device, output_device)
 
