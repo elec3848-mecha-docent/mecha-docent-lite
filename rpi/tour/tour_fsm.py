@@ -1,6 +1,8 @@
 import re
 import random
 import json
+import threading
+import math
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
@@ -42,6 +44,9 @@ class PaintingPose:
     x: float
     y: float
     yaw: float
+    laser_pan_offset_deg: float | None = None
+    laser_tilt_offset_deg: float | None = None
+    laser_radius_deg: float | None = None
 
 
 class DeterministicTourGuide:
@@ -69,6 +74,7 @@ class DeterministicTourGuide:
         self.serial_port = serial_port
         self.serial_baud = serial_baud
         self.serial_client = None
+        self._laser_cancel_timer: threading.Timer | None = None
 
         self.stt_model = create_model()
         self.tts = create_tts()
@@ -99,6 +105,7 @@ class DeterministicTourGuide:
             self._speak(self._line("tour_complete"))
             print("[FSM] Tour complete")
         finally:
+            self._cancel_laser_timer()
             if self.serial_client is not None:
                 self.serial_client.close()
 
@@ -252,10 +259,22 @@ class DeterministicTourGuide:
             if not artwork_id:
                 continue
             try:
+                laser_circle = item.get("laser_circle")
+                laser_pan_offset_deg = None
+                laser_tilt_offset_deg = None
+                laser_radius_deg = None
+                if isinstance(laser_circle, dict):
+                    laser_pan_offset_deg = float(laser_circle["pan_deg"])
+                    laser_tilt_offset_deg = float(laser_circle["tilt_deg"])
+                    laser_radius_deg = float(laser_circle["radius_deg"])
+
                 positions[artwork_id] = PaintingPose(
                     x=float(item["x"]),
                     y=float(item["y"]),
                     yaw=float(item["yaw"]),
+                    laser_pan_offset_deg=laser_pan_offset_deg,
+                    laser_tilt_offset_deg=laser_tilt_offset_deg,
+                    laser_radius_deg=laser_radius_deg,
                 )
             except (KeyError, TypeError, ValueError):
                 continue
@@ -292,6 +311,7 @@ class DeterministicTourGuide:
 
     def _handle_artwork_talk(self) -> None:
         artwork = self.route[self.current_index]
+        self._start_artwork_laser_circle(artwork)
         sequence = self._build_sentence_sequence(artwork)
 
         for i, (category, sentence) in enumerate(sequence):
@@ -306,6 +326,57 @@ class DeterministicTourGuide:
                     return
 
         self.state = State.CHECKIN_QUESTION
+
+    def _start_artwork_laser_circle(self, artwork: ArtworkContent) -> None:
+        pose = self.painting_positions.get(artwork.id)
+        if pose is None:
+            return
+
+        if (
+            pose.laser_pan_offset_deg is None
+            or pose.laser_tilt_offset_deg is None
+            or pose.laser_radius_deg is None
+        ):
+            return
+
+        if not self.serial_port:
+            return
+
+        try:
+            if self.serial_client is None:
+                self.serial_client = create_serial_protocol_client(port=self.serial_port, baud=self.serial_baud)
+
+            # 720 deg/s for 3 seconds corresponds to 2160 deg = 6 full rotations.
+            rotations_for_3s = max(1, int(math.ceil((720.0 * 3.0) / 360.0)))
+            self.serial_client.laser_on()
+            self.serial_client.start_laser_circle(
+                center_pan_deg=pose.laser_pan_offset_deg,
+                center_tilt_deg=pose.laser_tilt_offset_deg,
+                radius_deg=pose.laser_radius_deg,
+                rotations=rotations_for_3s,
+            )
+
+            self._cancel_laser_timer()
+            self._laser_cancel_timer = threading.Timer(3.0, self._stop_laser_after_talk_start)
+            self._laser_cancel_timer.daemon = True
+            self._laser_cancel_timer.start()
+        except Exception as exc:
+            print(f"[FSM] Failed to start artwork laser circle for {artwork.id}: {exc}")
+
+    def _cancel_laser_timer(self) -> None:
+        if self._laser_cancel_timer is None:
+            return
+        self._laser_cancel_timer.cancel()
+        self._laser_cancel_timer = None
+
+    def _stop_laser_after_talk_start(self) -> None:
+        try:
+            if self.serial_client is None:
+                return
+            self.serial_client.cancel_laser_motion()
+            self.serial_client.laser_off()
+        except Exception as exc:
+            print(f"[FSM] Failed to stop artwork laser circle: {exc}")
 
     def _handle_checkin(self) -> None:
         # After the first artwork, ask what the visitor pays attention to

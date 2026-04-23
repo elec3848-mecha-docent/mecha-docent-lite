@@ -1,38 +1,65 @@
 {
   "units": {
     "position": "meters",
-    "yaw": "radians"
+    "yaw": "radians",
+    "laser_center": "degrees_0_to_180",
+    "laser_radius": "degrees"
   },
   "paintings": [
     {
       "id": "mona-lisa",
-      "x": 0.30,
+      "x": 0.50,
       "y": -0.20,
-      "yaw": 3.00
+      "yaw": -2,
+      "laser_circle": {
+        "pan_deg": 95,
+        "tilt_deg": 155,
+        "radius_deg": 7.0
+      }
     },
     {
       "id": "starry-night",
-      "x": 1.16,
+      "x": 1.56,
       "y": -0.10,
-      "yaw": 3.1415
+      "yaw": -2,
+      "laser_circle": {
+        "pan_deg": -10.0,
+        "tilt_deg": -2.0,
+        "radius_deg": 9.0
+      }
     },
     {
       "id": "the-last-supper",
       "x": 1.30,
       "y": 1.60,
-      "yaw": -2.50
+      "yaw": -2.50,
+      "laser_circle": {
+        "pan_deg": 15.0,
+        "tilt_deg": 8.0,
+        "radius_deg": 6.0
+      }
     },
     {
       "id": "girl-with-a-pearl-earring",
       "x": 2.60,
       "y": 1.50,
-      "yaw": -3.00
+      "yaw": -3.00,
+      "laser_circle": {
+        "pan_deg": -14.0,
+        "tilt_deg": 10.0,
+        "radius_deg": 6.5
+      }
     },
     {
       "id": "the-persistence-of-memory",
       "x": 0.60,
       "y": 1.60,
-      "yaw": -1.20
+      "yaw": -1.20,
+      "laser_circle": {
+        "pan_deg": 8.0,
+        "tilt_deg": 12.0,
+        "radius_deg": 7.5
+      }
     }
   ]
 }

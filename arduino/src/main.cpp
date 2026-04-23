@@ -1,9 +1,15 @@
 #include <Arduino.h>
 
 #include "config.h"
+#include "laser.h"
 #include "motor.h"
+#include "servo.h"
 
 namespace {
+
+ServoController gServo;
+LaserController gLaser(LASER_PIN);
+constexpr float kLaserCircleSpeedDegPerSec = 720.0f;
 
 void printHelp() {
     Serial.println("Motor serial protocol ready. Enter: vx vy wz (range -255..255)");
@@ -12,6 +18,11 @@ void printHelp() {
     Serial.println("Type 'odom_reset' to reset odometry pose.");
     Serial.println("Type 'goto x y yaw' for moveTo in meters/radians (scaled by 100).");
     Serial.println("Type 'goto_cancel' to cancel moveTo.");
+    Serial.println("Type 'servo_cam pan tilt' to set camera servos (0..180).");
+    Serial.println("Type 'servo_laser pan tilt' to set laser servos (0..180).");
+    Serial.println("Type 'laser_dir panOff tiltOff speed' to move laser midpoint in deg/s.");
+    Serial.println("Type 'laser_circle pan tilt radius rotations' (absolute 0..180, speed fixed at 720 deg/s).");
+    Serial.println("Type 'laser_cancel', 'laser_on', or 'laser_off'.");
 }
 
 void handleLine(String line) {
@@ -39,6 +50,90 @@ void handleLine(String line) {
     if (line.equalsIgnoreCase("goto_cancel")) {
         cancelMoveTo();
         Serial.println("GOTO CANCELED");
+        return;
+    }
+
+    if (line.equalsIgnoreCase("laser_cancel")) {
+        gServo.cancelLaserMotion();
+        Serial.println("LASER MOTION CANCELED");
+        return;
+    }
+
+    if (line.equalsIgnoreCase("laser_on")) {
+        gLaser.turnOn();
+        Serial.println("LASER ON");
+        return;
+    }
+
+    if (line.equalsIgnoreCase("laser_off")) {
+        gLaser.turnOff();
+        Serial.println("LASER OFF");
+        return;
+    }
+
+    int panDeg = 0;
+    int tiltDeg = 0;
+    const int cameraServoParsed = sscanf(line.c_str(), "servo_cam %d %d", &panDeg, &tiltDeg);
+    if (cameraServoParsed == 2) {
+        gServo.setCameraPan(panDeg);
+        gServo.setCameraTilt(tiltDeg);
+        Serial.print("SERVO_CAM pan=");
+        Serial.print(gServo.getCameraPanAngleDeg());
+        Serial.print(" tilt=");
+        Serial.println(gServo.getCameraTiltAngleDeg());
+        return;
+    }
+
+    const int laserServoParsed = sscanf(line.c_str(), "servo_laser %d %d", &panDeg, &tiltDeg);
+    if (laserServoParsed == 2) {
+        gServo.setLaserPan(panDeg);
+        gServo.setLaserTilt(tiltDeg);
+        Serial.print("SERVO_LASER pan=");
+        Serial.print(gServo.getLaserPanAngleDeg());
+        Serial.print(" tilt=");
+        Serial.println(gServo.getLaserTiltAngleDeg());
+        return;
+    }
+
+    int panOffsetDeg = 0;
+    int tiltOffsetDeg = 0;
+    int speedDegPerSec = 0;
+    const int laserDirectionParsed = sscanf(
+        line.c_str(), "laser_dir %d %d %d", &panOffsetDeg, &tiltOffsetDeg, &speedDegPerSec);
+    if (laserDirectionParsed == 3) {
+        if (gServo.moveLaserMidpointToDirection(panOffsetDeg, tiltOffsetDeg, speedDegPerSec)) {
+            Serial.print("LASER_DIR panOff=");
+            Serial.print(panOffsetDeg);
+            Serial.print(" tiltOff=");
+            Serial.print(tiltOffsetDeg);
+            Serial.print(" speed=");
+            Serial.println(speedDegPerSec);
+        } else {
+            Serial.println("LASER_DIR REJECTED");
+        }
+        return;
+    }
+
+    int radiusDeg = 0;
+    int rotations = 0;
+    const int laserCircleParsed = sscanf(
+        line.c_str(), "laser_circle %d %d %d %d", &panOffsetDeg, &tiltOffsetDeg, &radiusDeg, &rotations);
+    if (laserCircleParsed == 4) {
+        if (gServo.drawLaserCircleAtDirection(
+                panOffsetDeg, tiltOffsetDeg, radiusDeg, kLaserCircleSpeedDegPerSec, rotations)) {
+            Serial.print("LASER_CIRCLE panOff=");
+            Serial.print(panOffsetDeg);
+            Serial.print(" tiltOff=");
+            Serial.print(tiltOffsetDeg);
+            Serial.print(" radius=");
+            Serial.print(radiusDeg);
+            Serial.print(" rotations=");
+            Serial.print(rotations);
+            Serial.print(" speed=");
+            Serial.println(kLaserCircleSpeedDegPerSec);
+        } else {
+            Serial.println("LASER_CIRCLE REJECTED");
+        }
         return;
     }
 
@@ -93,6 +188,9 @@ void handleLine(String line) {
 void setup() {
     Serial.begin(SERIAL_BAUDRATE);
     setupMotor();
+    gServo.begin();
+    gLaser.begin();
+    gLaser.turnOff();
     printHelp();
 }
 
@@ -105,19 +203,20 @@ void loop() {
     odometryService();
     moveToService();
     motorSyncService();
+    gServo.update();
 
     static unsigned long lastPrintMs = 0;
     const unsigned long nowMs = millis();
     if (nowMs - lastPrintMs >= 500) {
         lastPrintMs = nowMs;
-        Serial.print("ENC fl=");
-        Serial.print(getFrontLeftEncoderCount());
-        Serial.print(" fr=");
-        Serial.print(getFrontRightEncoderCount());
-        Serial.print(" bl=");
-        Serial.print(getBackLeftEncoderCount());
-        Serial.print(" br=");
-        Serial.print(getBackRightEncoderCount());
+        Serial.print("SERVO cam_pan=");
+        Serial.print(gServo.getCameraPanAngleDeg());
+        Serial.print(" cam_tilt=");
+        Serial.print(gServo.getCameraTiltAngleDeg());
+        Serial.print(" laser_pan=");
+        Serial.print(gServo.getLaserPanAngleDeg());
+        Serial.print(" laser_tilt=");
+        Serial.print(gServo.getLaserTiltAngleDeg());
         Serial.print(" | ODOM x=");
         Serial.print(getOdometryXMeters(), 4);
         Serial.print(" y=");

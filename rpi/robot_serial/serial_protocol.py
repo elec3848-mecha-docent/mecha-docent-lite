@@ -10,14 +10,56 @@ class SerialProtocolClient:
         self.port = port
         self.baud = baud
         self._serial = serial.Serial(port=port, baudrate=baud, timeout=timeout_sec)
+        self._io_lock = threading.Lock()
         # Opening serial often resets Arduino; allow boot logs to drain before first command.
         time.sleep(2.0)
         self._serial.reset_input_buffer()
         self._serial.reset_output_buffer()
 
     def send_command(self, command: str) -> None:
-        self._serial.write((command.strip() + "\n").encode("utf-8"))
-        self._serial.flush()
+        with self._io_lock:
+            self._serial.write((command.strip() + "\n").encode("utf-8"))
+            self._serial.flush()
+
+    def set_camera_angles(self, pan_deg: int, tilt_deg: int) -> None:
+        pan = max(0, min(180, int(round(pan_deg))))
+        tilt = max(0, min(180, int(round(tilt_deg))))
+        self.send_command(f"servo_cam {pan} {tilt}")
+
+    def set_laser_angles(self, pan_deg: int, tilt_deg: int) -> None:
+        pan = max(0, min(180, int(round(pan_deg))))
+        tilt = max(0, min(180, int(round(tilt_deg))))
+        self.send_command(f"servo_laser {pan} {tilt}")
+
+    def move_laser_midpoint(self, pan_offset_deg: int, tilt_offset_deg: int, speed_deg_per_sec: int) -> None:
+        self.send_command(
+            f"laser_dir {int(round(pan_offset_deg))} {int(round(tilt_offset_deg))} {int(round(speed_deg_per_sec))}"
+        )
+
+    def start_laser_circle(
+        self,
+        center_pan_deg: int,
+        center_tilt_deg: int,
+        radius_deg: int,
+        rotations: int,
+    ) -> None:
+        safe_rotations = max(1, int(round(rotations)))
+        self.send_command(
+            "laser_circle "
+            f"{int(round(center_pan_deg))} "
+            f"{int(round(center_tilt_deg))} "
+            f"{int(round(radius_deg))} "
+            f"{safe_rotations}"
+        )
+
+    def cancel_laser_motion(self) -> None:
+        self.send_command("laser_cancel")
+
+    def laser_on(self) -> None:
+        self.send_command("laser_on")
+
+    def laser_off(self) -> None:
+        self.send_command("laser_off")
 
     def stop(self) -> None:
         self.send_command("stop")
@@ -126,7 +168,11 @@ def run_serial_protocol_cli(port: str, baud: int) -> None:
     reader.start()
 
     safe_print("Serial protocol demo ready.")
-    safe_print("Enter commands exactly like serial monitor (e.g. 120 -30 45, stop, odom_reset, goto 100 0 157, goto_cancel).")
+    safe_print(
+        "Enter commands exactly like serial monitor "
+        "(e.g. 120 -30 45, stop, odom_reset, goto 100 0 157, goto_cancel, "
+        "servo_cam 90 90, servo_laser 90 90, laser_dir 10 -5 90, laser_circle 10 -5 8 6, laser_cancel)."
+    )
     safe_print("Type 'quit' or 'exit' to leave.")
 
     try:

@@ -28,6 +28,10 @@ public:
     bool isLaserDirectionMoveActive() const;
     bool isLaserCircleDrawActive() const;
     bool isLaserMotionActive() const;
+    int getCameraPanAngleDeg() const;
+    int getCameraTiltAngleDeg() const;
+    int getLaserPanAngleDeg() const;
+    int getLaserTiltAngleDeg() const;
 
 private:
     Servo camPan;
@@ -36,6 +40,8 @@ private:
     Servo laserTilt;
 
     bool servosAttached;
+    float currentCameraPanDeg;
+    float currentCameraTiltDeg;
     float currentLaserPanDeg;
     float currentLaserTiltDeg;
 

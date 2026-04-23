@@ -9,6 +9,8 @@ namespace {
 
 ServoController::ServoController()
     : servosAttached(false),
+    currentCameraPanDeg(kServoMidDeg),
+    currentCameraTiltDeg(kServoMidDeg),
       currentLaserPanDeg(kServoMidDeg),
       currentLaserTiltDeg(kServoMidDeg),
       directionMoveActive(false),
@@ -38,14 +40,16 @@ void ServoController::begin() {
 }
 
 void ServoController::setCameraPan(int angle) {
+    currentCameraPanDeg = constrain(static_cast<float>(angle), kServoMinDeg, kServoMaxDeg);
     if (servosAttached) {
-        camPan.write(constrain(angle, 0, 180));
+        camPan.write(static_cast<int>(currentCameraPanDeg));
     }
 }
 
 void ServoController::setCameraTilt(int angle) {
+    currentCameraTiltDeg = constrain(static_cast<float>(angle), kServoMinDeg, kServoMaxDeg);
     if (servosAttached) {
-        camTilt.write(constrain(angle, 0, 180));
+        camTilt.write(static_cast<int>(currentCameraTiltDeg));
     }
 }
 
@@ -85,8 +89,8 @@ bool ServoController::drawLaserCircleAtDirection(float centerPanOffsetDeg,
     }
 
     cancelDirectionMove();
-    circleCenterPanDeg = constrain(kServoMidDeg + centerPanOffsetDeg, kServoMinDeg, kServoMaxDeg);
-    circleCenterTiltDeg = constrain(kServoMidDeg + centerTiltOffsetDeg, kServoMinDeg, kServoMaxDeg);
+    circleCenterPanDeg = constrain(centerPanOffsetDeg, kServoMinDeg, kServoMaxDeg);
+    circleCenterTiltDeg = constrain(centerTiltOffsetDeg, kServoMinDeg, kServoMaxDeg);
     circleRadiusDeg = radiusDeg;
     circleAngularSpeedDegPerSec = angularSpeedDegPerSec;
     circleRequestedRotations = rotations;
@@ -165,6 +169,22 @@ bool ServoController::isLaserCircleDrawActive() const {
 
 bool ServoController::isLaserMotionActive() const {
     return directionMoveActive || circleDrawActive;
+}
+
+int ServoController::getCameraPanAngleDeg() const {
+    return static_cast<int>(roundf(currentCameraPanDeg));
+}
+
+int ServoController::getCameraTiltAngleDeg() const {
+    return static_cast<int>(roundf(currentCameraTiltDeg));
+}
+
+int ServoController::getLaserPanAngleDeg() const {
+    return static_cast<int>(roundf(currentLaserPanDeg));
+}
+
+int ServoController::getLaserTiltAngleDeg() const {
+    return static_cast<int>(roundf(currentLaserTiltDeg));
 }
 
 void ServoController::applyLaserAngles(float panDeg, float tiltDeg) {
