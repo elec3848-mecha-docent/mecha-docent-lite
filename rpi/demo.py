@@ -30,6 +30,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to tour JSON content file when running --demo tour.",
     )
     parser.add_argument(
+        "--painting-positions-json",
+        default="",
+        help="Path to painting position JSON file when running --demo tour.",
+    )
+    parser.add_argument(
         "--input-device",
         type=int,
         default=None,
@@ -115,6 +120,9 @@ def main() -> None:
         voice_name=args.voice,
         output_path=output_path,
         content_path=content_path,
+        serial_port=args.port,
+        serial_baud=args.baud,
+        painting_positions_path=args.painting_positions_json if args.painting_positions_json else None,
     )
 
 

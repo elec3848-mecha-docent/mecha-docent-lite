@@ -1,0 +1,38 @@
+{
+  "units": {
+    "position": "meters",
+    "yaw": "radians"
+  },
+  "paintings": [
+    {
+      "id": "mona-lisa",
+      "x": 0.30,
+      "y": -0.20,
+      "yaw": 3.00
+    },
+    {
+      "id": "starry-night",
+      "x": 1.16,
+      "y": -0.10,
+      "yaw": 3.1415
+    },
+    {
+      "id": "the-last-supper",
+      "x": 1.30,
+      "y": 1.60,
+      "yaw": -2.50
+    },
+    {
+      "id": "girl-with-a-pearl-earring",
+      "x": 2.60,
+      "y": 1.50,
+      "yaw": -3.00
+    },
+    {
+      "id": "the-persistence-of-memory",
+      "x": 0.60,
+      "y": 1.60,
+      "yaw": -1.20
+    }
+  ]
+}

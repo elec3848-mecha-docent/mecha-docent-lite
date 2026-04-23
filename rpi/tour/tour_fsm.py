@@ -1,8 +1,11 @@
 import re
 import random
+import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from pathlib import Path
 
+from robot_serial import create_serial_protocol_client
 from speech.stt import create_model, transcribe_from_microphone
 from tour.tour_config import ERA_APPROXIMATE_YEAR, SCRIPT_CATEGORY_ORDER, VERBOSITY_INFER_WORD_THRESHOLD
 from tour.tour_content_loader import ArtworkContent, ScriptSections, load_tour_content
@@ -34,12 +37,22 @@ class VisitorContext:
     user_word_counts: list[int] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class PaintingPose:
+    x: float
+    y: float
+    yaw: float
+
+
 class DeterministicTourGuide:
     def __init__(
         self,
         voice_name: str = "F4",
         output_path: str | None = "output.wav",
         content_path: str | None = None,
+        serial_port: str | None = None,
+        serial_baud: int = 115200,
+        painting_positions_path: str | None = None,
     ) -> None:
         self.voice_name = voice_name
         self.output_path = output_path
@@ -52,34 +65,42 @@ class DeterministicTourGuide:
         self.content = load_tour_content(content_path)
         self.policy = self.content.policy
         self.full_route: list[ArtworkContent] = []  # full sorted list for on-the-fly resizing
+        self.painting_positions = self._load_painting_positions(painting_positions_path)
+        self.serial_port = serial_port
+        self.serial_baud = serial_baud
+        self.serial_client = None
 
         self.stt_model = create_model()
         self.tts = create_tts()
 
     def run(self) -> None:
         print("[FSM] Starting deterministic Medo tour demo")
-        while self.state != State.TOUR_COMPLETE:
-            print(f"[FSM] State: {self.state.name}")
+        try:
+            while self.state != State.TOUR_COMPLETE:
+                print(f"[FSM] State: {self.state.name}")
 
-            if self.state == State.GREETING:
-                self._handle_greeting()
-            elif self.state == State.REJECTION_REBUTTAL:
-                self._handle_rebuttal()
-            elif self.state == State.ROUTE_SELECTION:
-                self._handle_route_selection()
-            elif self.state == State.PROFILE_GATHERING:
-                self._handle_profile_gathering()
-            elif self.state == State.MOVE_TO_ARTWORK:
-                self._handle_move_to_artwork()
-            elif self.state == State.ARTWORK_TALK:
-                self._handle_artwork_talk()
-            elif self.state == State.CHECKIN_QUESTION:
-                self._handle_checkin()
-            elif self.state == State.FALLBACK:
-                self._handle_fallback()
+                if self.state == State.GREETING:
+                    self._handle_greeting()
+                elif self.state == State.REJECTION_REBUTTAL:
+                    self._handle_rebuttal()
+                elif self.state == State.ROUTE_SELECTION:
+                    self._handle_route_selection()
+                elif self.state == State.PROFILE_GATHERING:
+                    self._handle_profile_gathering()
+                elif self.state == State.MOVE_TO_ARTWORK:
+                    self._handle_move_to_artwork()
+                elif self.state == State.ARTWORK_TALK:
+                    self._handle_artwork_talk()
+                elif self.state == State.CHECKIN_QUESTION:
+                    self._handle_checkin()
+                elif self.state == State.FALLBACK:
+                    self._handle_fallback()
 
-        self._speak(self._line("tour_complete"))
-        print("[FSM] Tour complete")
+            self._speak(self._line("tour_complete"))
+            print("[FSM] Tour complete")
+        finally:
+            if self.serial_client is not None:
+                self.serial_client.close()
 
     def _handle_greeting(self) -> None:
         self._speak(self._line("greeting"))
@@ -193,7 +214,81 @@ class DeterministicTourGuide:
 
         artwork = self.route[self.current_index]
         self._speak(self._line("moving", title=artwork.title))
+        self._move_to_artwork_position(artwork)
         self.state = State.ARTWORK_TALK
+
+    def _load_painting_positions(self, painting_positions_path: str | None) -> dict[str, PaintingPose]:
+        if painting_positions_path:
+            provided = Path(painting_positions_path)
+            candidates = [provided]
+
+            if not provided.is_absolute():
+                tour_dir = Path(__file__).resolve().parent         # .../rpi/tour
+                rpi_dir = tour_dir.parent                          # .../rpi
+                repo_dir = rpi_dir.parent                          # .../repo
+                candidates.extend([
+                    tour_dir / provided,
+                    rpi_dir / provided,
+                    repo_dir / provided,
+                ])
+
+            path = next((c for c in candidates if c.exists()), candidates[0])
+        else:
+            path = Path(__file__).with_name("painting_positions.json")
+
+        if not path.exists():
+            print(f"[FSM] Painting position file not found: {path}")
+            return {}
+
+        with path.open("r", encoding="utf-8") as file:
+            raw = json.load(file)
+
+        entries = raw.get("paintings", []) if isinstance(raw, dict) else []
+        positions: dict[str, PaintingPose] = {}
+        for item in entries:
+            if not isinstance(item, dict):
+                continue
+            artwork_id = str(item.get("id", "")).strip()
+            if not artwork_id:
+                continue
+            try:
+                positions[artwork_id] = PaintingPose(
+                    x=float(item["x"]),
+                    y=float(item["y"]),
+                    yaw=float(item["yaw"]),
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+        return positions
+
+    def _move_to_artwork_position(self, artwork: ArtworkContent) -> None:
+        pose = self.painting_positions.get(artwork.id)
+        if pose is None:
+            print(f"[FSM] No moveTo pose found for artwork id: {artwork.id}")
+            return
+
+        if not self.serial_port:
+            print(f"[FSM] moveTo skipped for {artwork.id}: serial port not configured")
+            return
+
+        try:
+            if self.serial_client is None:
+                self.serial_client = create_serial_protocol_client(port=self.serial_port, baud=self.serial_baud)
+
+            reached = self.serial_client.move_to_and_wait(pose.x, pose.y, pose.yaw, timeout_sec=90.0)
+            print(
+                f"[FSM] moveTo sent for {artwork.id}: "
+                f"x={pose.x:.3f}m y={pose.y:.3f}m yaw={pose.yaw:.3f}rad"
+            )
+            if reached:
+                print(f"[FSM] moveTo reached for {artwork.id} (GOTO=IDLE)")
+            else:
+                print(f"[FSM] moveTo timeout for {artwork.id}; continuing tour")
+        except Exception as exc:
+            print(f"[FSM] moveTo failed for {artwork.id}: {exc}")
+            if self.serial_client is not None:
+                self.serial_client.close()
+                self.serial_client = None
 
     def _handle_artwork_talk(self) -> None:
         artwork = self.route[self.current_index]
@@ -545,10 +640,16 @@ def run_tour_guide_demo(
     voice_name: str = "F4",
     output_path: str | None = "output.wav",
     content_path: str | None = None,
+    serial_port: str | None = None,
+    serial_baud: int = 115200,
+    painting_positions_path: str | None = None,
 ) -> None:
     guide = DeterministicTourGuide(
         voice_name=voice_name,
         output_path=output_path,
         content_path=content_path,
+        serial_port=serial_port,
+        serial_baud=serial_baud,
+        painting_positions_path=painting_positions_path,
     )
     guide.run()
