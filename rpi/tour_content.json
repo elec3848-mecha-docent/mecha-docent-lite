@@ -1,0 +1,224 @@
+{
+  "policy": {
+    "max_clear_rejections": 2,
+    "max_unclear_retries": 3,
+    "short_tour_minutes_threshold": 5,
+    "short_tour_artwork_count": 3,
+    "interrupt_listen_max_sec": 1.8,
+    "interrupt_silence_sec": 0.6
+  },
+  "keyword_buckets": {
+    "affirmative": ["yes", "yeah", "yep", "sure", "ok", "okay", "please", "fine", "alright"],
+    "negative": ["no", "nope", "nah", "not", "dont", "do not", "stop", "leave", "busy"],
+    "stop": ["stop", "quit", "exit", "end", "leave"],
+    "next": ["next", "continue", "move", "go", "forward"],
+    "repeat": ["repeat", "again", "what", "pardon"],
+    "brief": ["brief", "short", "faster", "quick", "too long", "boring", "less"],
+    "detailed": ["detail", "deeper", "more", "longer", "explain"]
+  },
+  "interest_topics": {
+    "technique": ["technique", "how", "paint", "method", "engineering", "technical"],
+    "history": ["history", "when", "era", "period", "old"],
+    "emotion": ["emotion", "feel", "mood", "expressive"],
+    "symbolism": ["symbol", "meaning", "metaphor", "idea"]
+  },
+  "prompt_variants": {
+    "greeting": [
+      "Hello. You can call me Medo, short for MechaDocent. Welcome to the IDP Museum. Would you like me to bring you around?",
+      "Hi, I am Medo. Welcome to the IDP Museum. Want a guided tour?"
+    ],
+    "rebuttal": [
+      "Are you sure? I can give you fun facts and keep it short. Is there anything you are looking for in particular?",
+      "No pressure, but I can do a very quick highlights tour. Looking for any style or artist?"
+    ],
+    "route_short": [
+      "Fair enough. I will skip the long tour and show you our best works quickly.",
+      "No worries. Let me give you a compact highlights route."
+    ],
+    "route_long": [
+      "Great. I will guide you through some popular works and keep checking in so we can adjust.",
+      "Perfect. I will guide you through key works and adapt as we go."
+    ],
+    "ask_time": [
+      "How much time do you have here today?",
+      "How long can we spend on this tour?"
+    ],
+    "ask_verbosity": [
+      "Do you want brief highlights or more detailed explanations?",
+      "Would you prefer quick summaries or deeper explanations?"
+    ],
+    "ask_interest": [
+      "Any interest in particular, like technique, history, emotion, or symbolism?",
+      "What should I focus on for you: technique, history, mood, or meaning?"
+    ],
+    "queue_intro": [
+      "Perfect. Here is our route: {queue}.",
+      "Great. We will visit: {queue}."
+    ],
+    "moving": [
+      "Moving now to {title}.",
+      "Let us head to {title}."
+    ],
+    "checkin_detailed": [
+      "Was that explanation too long?",
+      "Too much detail?",
+      "Is this a little too much?"
+    ],
+    "checkin_brief": [
+      "Would you like more details?",
+      "Do you want me to go deeper on the next one?",
+      "Should I add more context, or keep it short?"
+    ],
+    "mid_detailed_checkin": [
+      "Quick check: is this level of detail working for you?",
+      "Before I continue, is this depth okay?"
+    ],
+    "mid_detailed_continue": [
+      "Great, I will continue.",
+      "Perfect, I will keep going."
+    ],
+    "mid_detailed_shorten": [
+      "Got it. I will switch to shorter highlights.",
+      "Understood. I will keep it brief from here."
+    ],
+    "fallback": [
+      "I am not fully sure I caught that. I will continue, and you can interrupt with next, repeat, brief, details, or stop.",
+      "I might have missed that. I will keep moving, and you can say next, repeat, brief, details, or stop anytime."
+    ],
+    "unclear_continue": [
+      "No worries. I will keep it simple and continue.",
+      "All good. I will continue with a shorter style."
+    ],
+    "tour_complete": [
+      "Thanks for visiting with me. Enjoy the rest of your time at the museum.",
+      "That wraps our tour. Enjoy the museum."
+    ]
+  },
+  "artworks": [
+    {
+      "id": "mona-lisa",
+      "title": "Mona Lisa",
+      "artist": "Leonardo da Vinci",
+      "era": "High Renaissance",
+      "popularity": 98,
+      "topic_tags": ["renaissance", "portrait", "technique", "da vinci", "engineering"],
+      "scripts": {
+        "intro": ["This is the Mona Lisa by Leonardo da Vinci."],
+        "brief": {
+          "year": ["It was painted in the early 1500s."],
+          "technique": ["Da Vinci used sfumato, a soft blending technique."],
+          "features": ["The subtle smile and calm gaze are its most famous features."],
+          "history": ["It became one of the most recognized paintings in the world."],
+          "extra": ["Many visitors are surprised by how small it is in person."]
+        },
+        "detailed": {
+          "year": ["It was painted in the early 1500s during the High Renaissance."],
+          "technique": ["Da Vinci used sfumato, layering thin glazes to blur hard edges and create lifelike transitions."],
+          "features": ["Her expression appears to shift as you move, partly due to how the eyes and mouth are modeled."],
+          "history": ["Over time, this portrait became a global icon of portrait painting and museum culture."],
+          "extra": ["Engineers often appreciate da Vinci for combining artistic practice with technical observation."]
+        }
+      }
+    },
+    {
+      "id": "starry-night",
+      "title": "The Starry Night",
+      "artist": "Vincent van Gogh",
+      "era": "Post-Impressionism",
+      "popularity": 95,
+      "topic_tags": ["post-impressionism", "color", "emotion", "brushwork"],
+      "scripts": {
+        "intro": ["This is The Starry Night by Vincent van Gogh."],
+        "brief": {
+          "year": ["He painted it in 1889."],
+          "technique": ["The thick brushwork creates visible movement."],
+          "features": ["The swirling sky and bright stars dominate the scene."],
+          "history": ["It became a symbol of emotional expression in modern art."],
+          "extra": ["People often connect with its energy even without knowing its history."]
+        },
+        "detailed": {
+          "year": ["Van Gogh painted it in 1889 while living in Saint-Remy."],
+          "technique": ["He used impasto, building paint thickness so strokes carry direction and rhythm."],
+          "features": ["The cypress, village, and sky are organized to balance calm structure with emotional motion."],
+          "history": ["The work later became central to how people understand expressive modern painting."],
+          "extra": ["Its color contrasts are deliberate, using cool blues against intense yellows to amplify impact."]
+        }
+      }
+    },
+    {
+      "id": "the-last-supper",
+      "title": "The Last Supper",
+      "artist": "Leonardo da Vinci",
+      "era": "High Renaissance",
+      "popularity": 90,
+      "topic_tags": ["renaissance", "composition", "perspective", "religious"],
+      "scripts": {
+        "intro": ["This is The Last Supper by Leonardo da Vinci."],
+        "brief": {
+          "year": ["It was created in the late 1400s."],
+          "technique": ["The geometry uses one-point perspective."],
+          "features": ["All lines pull your focus toward the center."],
+          "history": ["It became one of the most studied religious artworks."],
+          "extra": ["You can read the apostles as a sequence of emotional reactions."]
+        },
+        "detailed": {
+          "year": ["Da Vinci worked on it around 1495 to 1498."],
+          "technique": ["He structured the room with one-point perspective so architectural lines converge near Christ."],
+          "features": ["The apostles are grouped in dynamic clusters, each reacting differently to the central moment."],
+          "history": ["Its composition strongly influenced later narrative painting in Europe."],
+          "extra": ["Even non-religious viewers often notice how cinematic the staging feels."]
+        }
+      }
+    },
+    {
+      "id": "girl-with-a-pearl-earring",
+      "title": "Girl with a Pearl Earring",
+      "artist": "Johannes Vermeer",
+      "era": "Dutch Golden Age",
+      "popularity": 85,
+      "topic_tags": ["portrait", "light", "dutch", "technique"],
+      "scripts": {
+        "intro": ["This is Girl with a Pearl Earring by Johannes Vermeer."],
+        "brief": {
+          "year": ["It was painted in the 1660s."],
+          "technique": ["Vermeer carefully controls light transitions."],
+          "features": ["The direct gaze and pearl highlight create intimacy."],
+          "history": ["It is often called the Mona Lisa of the North."],
+          "extra": ["Its simple background keeps your focus on expression."]
+        },
+        "detailed": {
+          "year": ["Vermeer painted it in the Dutch Golden Age, likely in the 1660s."],
+          "technique": ["He used subtle value shifts and controlled highlights to model skin and fabric with precision."],
+          "features": ["The turned pose, parted lips, and bright pearl create a feeling of immediate presence."],
+          "history": ["The painting later became a touchstone for studies of light and portrait intimacy."],
+          "extra": ["Its minimal setting is a design choice that amplifies visual focus."]
+        }
+      }
+    },
+    {
+      "id": "the-persistence-of-memory",
+      "title": "The Persistence of Memory",
+      "artist": "Salvador Dali",
+      "era": "Surrealism",
+      "popularity": 80,
+      "topic_tags": ["surrealism", "symbolism", "time", "modern"],
+      "scripts": {
+        "intro": ["This is The Persistence of Memory by Salvador Dali."],
+        "brief": {
+          "year": ["Dali painted it in 1931."],
+          "technique": ["He rendered dream imagery with precise realism."],
+          "features": ["The melting clocks are the painting's best known feature."],
+          "history": ["It became a defining image of surrealism."],
+          "extra": ["Many visitors read it as a challenge to rigid schedules and certainty."]
+        },
+        "detailed": {
+          "year": ["Dali painted it in 1931 during a key phase of surrealism."],
+          "technique": ["He used polished, almost photographic painting methods to depict irrational dream logic."],
+          "features": ["Soft clocks drape over hard surfaces, contrasting precision with instability."],
+          "history": ["The image became one of the most recognizable symbols of surrealist thought."],
+          "extra": ["Its tension between order and distortion makes it relatable to both artists and engineers."]
+        }
+      }
+    }
+  ]
+}
