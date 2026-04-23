@@ -9,8 +9,8 @@ static constexpr float kQyaw = 0.05f;   // rad^2 / s
 // Base measurement noise (divided by confidence at correction time).
 // These assume AprilTag corrections have ~2 cm / ~5 deg 1-sigma error at
 // full confidence.  Raise kRxy / kRyaw if corrections are noisier.
-static constexpr float kRxy  = 0.04f;   // m^2   (≈ 0.2 m sigma at conf=1)
-static constexpr float kRyaw = 0.10f;   // rad^2 (≈ 0.32 rad sigma at conf=1)
+static constexpr float kRxy  = 0.0005f;
+static constexpr float kRyaw = 0.0030f;
 
 // ---- Constructor ----
 

@@ -16,19 +16,35 @@ constexpr uint32_t MOTOR_CONTROL_HZ = 50UL;
 constexpr uint32_t MOTOR_CONTROL_PERIOD_US = 1000000UL / MOTOR_CONTROL_HZ;
 constexpr uint32_t STATUS_PUBLISH_HZ = 10UL;
 constexpr uint32_t STATUS_PUBLISH_PERIOD_MS = 1000UL / STATUS_PUBLISH_HZ;
-constexpr uint32_t POSE_CORRECTION_STALE_MS = 2500UL;
+
+// Stop navigating if AprilTag correction becomes stale
+constexpr uint32_t POSE_CORRECTION_STALE_MS = 1500UL;
 
 // Serial bridge protocol
 constexpr size_t SERIAL_LINE_BUFFER_SIZE = 192;
-constexpr uint32_t TARGET_COMMAND_TIMEOUT_MS = 3000UL;
+constexpr uint32_t TARGET_COMMAND_TIMEOUT_MS = 60000UL;
 
-// Navigation controller (normalized velocity outputs)
-constexpr float NAV_POSITION_KP = 0.50f;
-constexpr float NAV_YAW_KP = 0.60f;
-constexpr float NAV_MAX_VXY_NORM = 0.85f;
-constexpr float NAV_MAX_WZ_NORM = 0.75f;
-constexpr float NAV_TARGET_XY_TOL_M = 0.08f;
-constexpr float NAV_TARGET_YAW_TOL_RAD = 0.12f;
+// Navigation controller
+constexpr float NAV_POSITION_KP = 0.85f;
+constexpr float NAV_YAW_KP = 1.00f;
+
+constexpr float NAV_MAX_VXY_NORM = 0.50f;
+constexpr float NAV_MAX_WZ_NORM = 0.40f;
+
+constexpr float NAV_TARGET_XY_TOL_M = 0.03f;      // 3 cm
+constexpr float NAV_TARGET_YAW_TOL_RAD = 0.08f;   // about 4.6 deg
+
+constexpr float NAV_BURST_XY_RADIUS_M = 0.10f;
+constexpr float NAV_BURST_YAW_RADIUS_RAD = 0.10f;
+
+constexpr float NAV_BURST_VXY_NORM = 0.06f;
+constexpr float NAV_BURST_WZ_NORM  = 0.05f;
+
+constexpr uint32_t NAV_BURST_ON_MS = 60UL;
+constexpr uint32_t NAV_BURST_OFF_MS = 300UL;
+
+// Hold inside target for several cycles before declaring reached
+constexpr uint8_t NAV_REACHED_HOLD_CYCLES = 4;
 
 // Simplified normalized control (vx/vy/wz each in [-1.0, 1.0])
 constexpr float COMMAND_DEADBAND = 0.02f;
@@ -44,7 +60,7 @@ constexpr int YAW_NUDGE_PWM_DECAY_STEP = 1;
 constexpr int YAW_NUDGE_PWM_MAX = 70;
 
 // Dead-reckoning scale from normalized command to pseudo physical units.
-// Tune these experimentally if you need metric consistency.
+// AprilTag is the truth; this only helps briefly between corrections.
 constexpr float NORM_TO_MPS = 0.55f;
 constexpr float NORM_TO_RAD_S = 2.20f;
 
