@@ -89,7 +89,7 @@ pip install -r requirements.txt
 Run:
 
 ~~~bash
-python live_navigation_demo.py --port /dev/ttyUSB0 --calibration apriltag-pose-estimator/config/camera_calibration_rpi.yaml --tag-map apriltag-pose-estimator/config/tag_map_example.json
+python live_navigation_demo.py --port /dev/ttyUSB0 --calibration apriltag-pose-estimator/config/camera_calibration_rpi.yaml --tag-map apriltag-pose-estimator/config/tag_map_example.json --picamera2
 ~~~
 
 CLI commands while running:

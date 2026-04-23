@@ -116,10 +116,10 @@ void MecanumMotor::setWheelOutput(int wheel, int signed_pwm) {
 }
 
 void MecanumMotor::computeNormalizedWheelMix(float vx, float vy, float wz, float out_mix[kWheelCount]) {
-    out_mix[kFl] = vx - vy + wz;
-    out_mix[kFr] = vx + vy - wz;
-    out_mix[kBl] = vx + vy + wz;
-    out_mix[kBr] = vx - vy - wz;
+    out_mix[kFl] = vx - vy - wz; // Left side moves back for CCW
+    out_mix[kFr] = vx + vy + wz; // Right side moves forward for CCW
+    out_mix[kBl] = vx + vy - wz;
+    out_mix[kBr] = vx - vy + wz;
 
     float max_abs = 1.0f;
     for (int i = 0; i < kWheelCount; ++i) {

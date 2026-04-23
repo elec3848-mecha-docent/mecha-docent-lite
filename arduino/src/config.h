@@ -23,8 +23,8 @@ constexpr size_t SERIAL_LINE_BUFFER_SIZE = 192;
 constexpr uint32_t TARGET_COMMAND_TIMEOUT_MS = 3000UL;
 
 // Navigation controller (normalized velocity outputs)
-constexpr float NAV_POSITION_KP = 0.90f;
-constexpr float NAV_YAW_KP = 1.40f;
+constexpr float NAV_POSITION_KP = 0.50f;
+constexpr float NAV_YAW_KP = 0.60f;
 constexpr float NAV_MAX_VXY_NORM = 0.85f;
 constexpr float NAV_MAX_WZ_NORM = 0.75f;
 constexpr float NAV_TARGET_XY_TOL_M = 0.08f;
