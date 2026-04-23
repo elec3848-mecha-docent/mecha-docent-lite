@@ -10,6 +10,8 @@
   "keyword_buckets": {
     "affirmative": ["yes", "yeah", "yep", "sure", "ok", "okay", "please", "fine", "alright"],
     "negative": ["no", "nope", "nah", "not", "dont", "do not", "stop", "leave", "busy"],
+    "older": ["old", "older", "classic", "classical", "ancient", "historical", "traditional", "master", "masters"],
+    "newer": ["new", "newer", "modern", "recent", "contemporary", "latest"],
     "stop": ["stop", "quit", "exit", "end", "leave"],
     "next": ["next", "continue", "move", "go", "forward"],
     "repeat": ["repeat", "again", "what", "pardon"],
@@ -27,6 +29,18 @@
       "Hello. You can call me Medo, short for MechaDocent. Welcome to the IDP Museum. Would you like me to bring you around?",
       "Hi, I am Medo. Welcome to the IDP Museum. Want a guided tour?"
     ],
+    "greeting_silent": [
+      "I didn't hear anything — no worries! Would you like a tour? Just say yes or no.",
+      "Hmm, I didn't catch that. Can you hear me? Just say yes to start the tour, or no to skip it."
+    ],
+    "greeting_retry": [
+      "Sorry, I didn't quite get that. Would you like me to show you around? Just a yes or no works.",
+      "I'm not sure I understood. Do you want a guided tour? Say yes to join me!"
+    ],
+    "greeting_default": [
+      "I'll take that as a yes — let's get started!",
+      "I'll assume you're curious! Let's go."
+    ],
     "rebuttal": [
       "Are you sure? I can give you fun facts and keep it short. Is there anything you are looking for in particular?",
       "No pressure, but I can do a very quick highlights tour. Looking for any style or artist?"
@@ -43,13 +57,49 @@
       "How much time do you have here today?",
       "How long can we spend on this tour?"
     ],
-    "ask_verbosity": [
-      "Do you want brief highlights or more detailed explanations?",
-      "Would you prefer quick summaries or deeper explanations?"
+    "ask_time_silent": [
+      "I didn't hear you — how long do we have? Say something like ten minutes, or an hour.",
+      "I missed that. How much time? For example: fifteen minutes, or two hours."
     ],
-    "ask_interest": [
-      "Any interest in particular, like technique, history, emotion, or symbolism?",
-      "What should I focus on for you: technique, history, mood, or meaning?"
+    "ask_time_retry": [
+      "I didn't quite catch a time. Did you mean something like ten minutes or half an hour?",
+      "Sorry, I didn't get a duration. How long — something like twenty minutes, or an hour?"
+    ],
+    "ask_time_default": [
+      "No worries — I'll assume we have plenty of time and cover all the highlights.",
+      "I'll take that as open-ended! I'll go through everything at a comfortable pace."
+    ],
+    "ask_period": [
+      "Do you usually enjoy older paintings, or do you prefer newer ones?",
+      "Are you more drawn to old masters, or to more modern works?"
+    ],
+    "ask_period_silent": [
+      "I didn't hear you. Do you prefer older classics, or more modern paintings?",
+      "I missed that — older masters, or modern works?"
+    ],
+    "ask_period_retry": [
+      "I didn't quite get that. Do you prefer older classics like the Renaissance, or more modern paintings like Surrealism?",
+      "Hmm, I'm not sure I understood. Older or newer — which sounds more appealing to you?"
+    ],
+    "period_response_newer": [
+      "Well, everything here is pretty old to be honest — but let's start with the most recent ones we have, then work our way back!",
+      "Good news and bad news: they're all old. But let's start from the most recent and travel back in time!"
+    ],
+    "period_response_older": [
+      "Great choice — let's start from the oldest masterpieces and work our way forward!",
+      "Perfect. We'll go through the classics first, oldest to newest."
+    ],
+    "period_response_unclear": [
+      "I'll take that as an open mind! I'll start from the most recent works and go back from there.",
+      "No strong preference? Let's go from the most recent and trace things back."
+    ],
+    "ask_aspect": [
+      "When you look at a painting like this, what do you usually pay attention to? Is it the technique, the history behind it, the emotions it brings up, or the symbolism?",
+      "Out of curiosity — when you're standing in front of a painting, what catches your attention first? The way it was made, the story behind it, the feelings it evokes, or the hidden meanings?"
+    ],
+    "ask_aspect_unclear": [
+      "No worries — I'll mix it up and cover a bit of technique, history, and emotion for each painting.",
+      "That's fine! I'll give you a well-rounded view — technique, story, and feeling."
     ],
     "queue_intro": [
       "Perfect. Here is our route: {queue}.",
@@ -75,6 +125,14 @@
       "Great, I will continue.",
       "Perfect, I will keep going."
     ],
+    "mid_detailed_checkin_silent": [
+      "I'll keep going then!",
+      "Alright, carrying on!"
+    ],
+    "mid_detailed_checkin_unclear": [
+      "I'll take that as a yes — carrying on!",
+      "Not quite sure what you said, but I'll keep going!"
+    ],
     "mid_detailed_shorten": [
       "Got it. I will switch to shorter highlights.",
       "Understood. I will keep it brief from here."
@@ -82,6 +140,10 @@
     "fallback": [
       "I am not fully sure I caught that. I will continue, and you can interrupt with next, repeat, brief, details, or stop.",
       "I might have missed that. I will keep moving, and you can say next, repeat, brief, details, or stop anytime."
+    ],
+    "checkin_silent": [
+      "I'll take the silence as a thumbs up — moving on to the next one!",
+      "No response — I'll keep us moving!"
     ],
     "unclear_continue": [
       "No worries. I will keep it simple and continue.",

@@ -1,10 +1,10 @@
 import re
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from speech.stt import create_model, transcribe_from_microphone
-from tour.tour_config import SCRIPT_CATEGORY_ORDER
+from tour.tour_config import ERA_APPROXIMATE_YEAR, SCRIPT_CATEGORY_ORDER, VERBOSITY_INFER_WORD_THRESHOLD
 from tour.tour_content_loader import ArtworkContent, ScriptSections, load_tour_content
 from speech.tts import create_tts, speak_text
 
@@ -29,6 +29,9 @@ class VisitorContext:
     clear_rejections: int = 0
     unclear_retries: int = 0
     first_detailed_checkin_done: bool = False
+    first_artwork_aspect_asked: bool = False
+    period_preference: str = "newer"  # "newer" | "older"
+    user_word_counts: list[int] = field(default_factory=list)
 
 
 class DeterministicTourGuide:
@@ -48,6 +51,7 @@ class DeterministicTourGuide:
 
         self.content = load_tour_content(content_path)
         self.policy = self.content.policy
+        self.full_route: list[ArtworkContent] = []  # full sorted list for on-the-fly resizing
 
         self.stt_model = create_model()
         self.tts = create_tts()
@@ -84,17 +88,35 @@ class DeterministicTourGuide:
         if self._is_stop(text):
             self.state = State.TOUR_COMPLETE
             return
-
         if self._has_bucket(text, "affirmative"):
             self.state = State.ROUTE_SELECTION
             return
-
         if self._has_bucket(text, "negative"):
             self.context.clear_rejections += 1
             self.state = State.REJECTION_REBUTTAL
             return
 
-        self.state = State.FALLBACK
+        # No match — one retry with a more leading question
+        if not self._normalize(text):
+            self._speak(self._line("greeting_silent"))
+        else:
+            self._speak(self._line("greeting_retry"))
+        text = self._listen()
+
+        if self._is_stop(text):
+            self.state = State.TOUR_COMPLETE
+            return
+        if self._has_bucket(text, "affirmative"):
+            self.state = State.ROUTE_SELECTION
+            return
+        if self._has_bucket(text, "negative"):
+            self.context.clear_rejections += 1
+            self.state = State.REJECTION_REBUTTAL
+            return
+
+        # Still unclear — assume yes and continue
+        self._speak(self._line("greeting_default"))
+        self.state = State.ROUTE_SELECTION
 
     def _handle_rebuttal(self) -> None:
         if self.context.clear_rejections < self.policy.max_clear_rejections:
@@ -124,21 +146,39 @@ class DeterministicTourGuide:
         self.state = State.PROFILE_GATHERING
 
     def _handle_profile_gathering(self) -> None:
+        # --- time ---
         self._speak(self._line("ask_time"))
         time_answer = self._listen()
         minutes = self._extract_time_limit_minutes(time_answer)
+        if minutes is None:
+            if not self._normalize(time_answer):
+                self._speak(self._line("ask_time_silent"))
+            else:
+                self._speak(self._line("ask_time_retry"))
+            time_answer = self._listen()
+            minutes = self._extract_time_limit_minutes(time_answer)
         if minutes is not None:
             self.context.time_limit_minutes = minutes
+        else:
+            self._speak(self._line("ask_time_default"))
 
-        self._apply_default_verbosity_from_time()
+        # Infer verbosity from how much the visitor has spoken so far
+        self._infer_verbosity_from_responses()
 
-        self._speak(self._line("ask_verbosity"))
-        verbosity_answer = self._listen()
-        self._update_verbosity_from_text(verbosity_answer)
-
-        self._speak(self._line("ask_interest"))
-        interest_answer = self._listen()
-        self._update_interest_from_text(interest_answer)
+        # --- period ---
+        self._speak(self._line("ask_period"))
+        period_answer = self._listen()
+        period_set = self._apply_period_preference(period_answer)
+        if not period_set:
+            if not self._normalize(period_answer):
+                self._speak(self._line("ask_period_silent"))
+            else:
+                self._speak(self._line("ask_period_retry"))
+            period_answer = self._listen()
+            period_set = self._apply_period_preference(period_answer)
+        if not period_set:
+            self.context.period_preference = "newer"
+            self._speak(self._line("period_response_unclear"))
 
         self.route = self._build_route()
         queue_text = ", ".join(art.title for art in self.route)
@@ -165,18 +205,34 @@ class DeterministicTourGuide:
             if self._needs_first_detailed_checkin(category, sequence, i):
                 if self._run_mid_detailed_checkin():
                     return
-
-            interrupt_text = self._listen_for_interrupt()
-            if self._apply_interrupt_text(interrupt_text):
-                return
+            elif self.context.verbosity_level == "detailed":
+                interrupt_text = self._listen_for_interrupt()
+                if self._apply_interrupt_text(interrupt_text):
+                    return
 
         self.state = State.CHECKIN_QUESTION
 
     def _handle_checkin(self) -> None:
+        # After the first artwork, ask what the visitor pays attention to
+        if not self.context.first_artwork_aspect_asked and self.current_index == 0:
+            self.context.first_artwork_aspect_asked = True
+            self._speak(self._line("ask_aspect"))
+            aspect_answer = self._listen()
+            if not self._update_interest_from_text(aspect_answer):
+                self._speak(self._line("ask_aspect_unclear"))
+
         prompt_key = "checkin_detailed" if self.context.verbosity_level == "detailed" else "checkin_brief"
         self._speak(self._line(prompt_key))
         text = self._listen()
-        if self._apply_interrupt_text(text, default_to_next=True):
+
+        # Announce when silently moving on due to no speech
+        if not self._normalize(text):
+            self._speak(self._line("checkin_silent"))
+            self.current_index += 1
+            self.state = State.MOVE_TO_ARTWORK
+            return
+
+        if self._apply_interrupt_text(text):
             return
 
         self.context.unclear_retries += 1
@@ -184,6 +240,7 @@ class DeterministicTourGuide:
             self._speak(self._line("unclear_continue"))
             self.context.unclear_retries = 0
             self.context.verbosity_level = "brief"
+            self._recalculate_route_count()
             self.current_index += 1
             self.state = State.MOVE_TO_ARTWORK
             return
@@ -199,27 +256,51 @@ class DeterministicTourGuide:
                 self.state = State.PROFILE_GATHERING
 
     def _build_route(self) -> list[ArtworkContent]:
-        artworks = sorted(self.content.artworks, key=lambda art: art.popularity, reverse=True)
+        # Sort direction follows the visitor's period preference
+        newest_first = self.context.period_preference != "older"
+        artworks = sorted(
+            self.content.artworks,
+            key=lambda art: ((-1 if newest_first else 1) * ERA_APPROXIMATE_YEAR.get(art.era, 0), -art.popularity),
+        )
 
         if self.context.interest_topic:
             interest = self.context.interest_topic
             artworks = sorted(
                 artworks,
-                key=lambda art: (interest not in art.topic_tags, -art.popularity),
+                key=lambda art: (
+                    interest not in art.topic_tags,
+                    (-1 if newest_first else 1) * ERA_APPROXIMATE_YEAR.get(art.era, 0),
+                    -art.popularity,
+                ),
             )
 
-        if (
-            self.context.time_limit_minutes is not None
-            and self.context.time_limit_minutes <= self.policy.short_tour_minutes_threshold
-        ):
-            return artworks[: self.policy.short_tour_artwork_count]
+        self.full_route = artworks
+        return self._slice_route(artworks)
 
+    def _slice_route(self, artworks: list[ArtworkContent]) -> list[ArtworkContent]:
+        if self.context.time_limit_minutes is not None:
+            explain_time = 2 if self.context.verbosity_level == "detailed" else 1
+            count = max(1, int(self.context.time_limit_minutes / (explain_time + 1)))
+            return artworks[:count]
         return artworks
+
+    def _recalculate_route_count(self) -> None:
+        """Resize the route based on current verbosity, preserving already-visited paintings."""
+        if not self.full_route or self.context.time_limit_minutes is None:
+            return
+        new_route = self._slice_route(self.full_route)
+        # Never drop paintings already visited or currently being explained
+        min_keep = self.current_index + 1
+        if len(new_route) < min_keep:
+            new_route = self.full_route[:min_keep]
+        self.route = new_route
+        print(f"[FSM] Route adjusted to {len(self.route)} paintings (verbosity={self.context.verbosity_level})")
 
     def _listen(self) -> str:
         text = transcribe_from_microphone(model=self.stt_model)
         if text:
             print(f"[User] {text}")
+            self.context.user_word_counts.append(len(text.split()))
         else:
             print("[User] (No speech detected)")
         return text
@@ -264,14 +345,36 @@ class DeterministicTourGuide:
         text = re.sub(r"\s+", " ", text)
         return text
 
+    _WORD_TO_NUM: dict[str, int] = {
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+        "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+        "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40,
+        "fifty": 50, "sixty": 60, "ninety": 90,
+    }
+
     def _extract_time_limit_minutes(self, text: str) -> int | None:
+        # Remove digit-separating commas before normalizing ("1,856" → "1856")
+        text = re.sub(r"(\d),(\d)", r"\1\2", text)
         normalized = self._normalize(text)
         if not normalized:
             return None
 
-        match = re.search(r"(\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs)", normalized)
+        time_unit = r"(minute|minutes|min|mins|hour|hours|hr|hrs)"
+
+        # Numeric match
+        match = re.search(rf"(\d+)\s*{time_unit}", normalized)
         if match:
             value = int(match.group(1))
+            unit = match.group(2)
+            return value * 60 if unit.startswith("h") else value
+
+        # Spelled-out number match (e.g. "five minutes")
+        word_pattern = "|".join(self._WORD_TO_NUM.keys())
+        match = re.search(rf"({word_pattern})\s*{time_unit}", normalized)
+        if match:
+            value = self._WORD_TO_NUM[match.group(1)]
             unit = match.group(2)
             return value * 60 if unit.startswith("h") else value
 
@@ -286,15 +389,37 @@ class DeterministicTourGuide:
         elif self._has_bucket(text, "detailed"):
             self.context.verbosity_level = "detailed"
 
-    def _update_interest_from_text(self, text: str) -> None:
+    def _update_interest_from_text(self, text: str) -> bool:
+        """Returns True if a topic was detected and set."""
         normalized = self._normalize(text)
         if not normalized:
-            return
+            return False
 
         for topic, keywords in self.content.interest_topics.items():
             if any(keyword in normalized for keyword in keywords):
                 self.context.interest_topic = topic
-                return
+                return True
+        return False
+
+    def _apply_period_preference(self, text: str) -> bool:
+        """Detect older/newer from text, set preference and speak response. Returns True if detected."""
+        if self._has_bucket(text, "older") and not self._has_bucket(text, "newer"):
+            self.context.period_preference = "older"
+            self._speak(self._line("period_response_older"))
+            return True
+        if self._has_bucket(text, "newer") and not self._has_bucket(text, "older"):
+            self.context.period_preference = "newer"
+            self._speak(self._line("period_response_newer"))
+            return True
+        return False
+
+    def _infer_verbosity_from_responses(self) -> None:
+        """Set verbosity based on how many words the visitor has used on average so far."""
+        if not self.context.user_word_counts:
+            self.context.verbosity_level = "detailed"
+            return
+        avg = sum(self.context.user_word_counts) / len(self.context.user_word_counts)
+        self.context.verbosity_level = "detailed" if avg > VERBOSITY_INFER_WORD_THRESHOLD else "brief"
 
     def _apply_default_verbosity_from_time(self) -> None:
         if self.context.time_limit_minutes is not None and (
@@ -336,8 +461,8 @@ class DeterministicTourGuide:
         if self.context.first_detailed_checkin_done:
             return False
         
-        # Check in after about halfway through the detailed explanation
-        return index >= len(sequence) // 2
+        # Check in at exactly the midpoint of the detailed explanation
+        return index == len(sequence) // 2
 
     def _run_mid_detailed_checkin(self) -> bool:
         self.context.first_detailed_checkin_done = True
@@ -351,6 +476,7 @@ class DeterministicTourGuide:
 
         if self._has_bucket(text, "brief") or self._has_bucket(text, "negative"):
             self.context.verbosity_level = "brief"
+            self._recalculate_route_count()
             self._speak(self._line("mid_detailed_shorten"))
             self.state = State.CHECKIN_QUESTION
             return True
@@ -364,6 +490,11 @@ class DeterministicTourGuide:
             self._speak(self._line("mid_detailed_continue"))
             return False
 
+        # No speech or unclear — announce we're continuing
+        if not self._normalize(text):
+            self._speak(self._line("mid_detailed_checkin_silent"))
+        else:
+            self._speak(self._line("mid_detailed_checkin_unclear"))
         return False
 
     def _apply_interrupt_text(self, text: str, default_to_next: bool = False) -> bool:
@@ -390,12 +521,14 @@ class DeterministicTourGuide:
 
         if self._has_bucket(normalized, "brief"):
             self.context.verbosity_level = "brief"
+            self._recalculate_route_count()
             self.current_index += 1
             self.state = State.MOVE_TO_ARTWORK
             return True
 
         if self._has_bucket(normalized, "detailed"):
             self.context.verbosity_level = "detailed"
+            self._recalculate_route_count()
             self.current_index += 1
             self.state = State.MOVE_TO_ARTWORK
             return True
@@ -403,8 +536,8 @@ class DeterministicTourGuide:
         return False
 
     def _line(self, key: str, **kwargs: str) -> str:
+        variants = self.content.prompt_variants[key]
         template = random.choice(variants)
-        template = variants[cursor % len(variants)]
         return template.format(**kwargs)
 
 
