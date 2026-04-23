@@ -15,11 +15,48 @@ public:
     void setLaserPan(int angle);
     void setLaserTilt(int angle);
 
+    // Direction offsets are in degrees around midpoint (90, 90).
+    bool moveLaserMidpointToDirection(float panOffsetDeg, float tiltOffsetDeg, float speedDegPerSec);
+    bool drawLaserCircleAtDirection(float centerPanOffsetDeg,
+                                    float centerTiltOffsetDeg,
+                                    float radiusDeg,
+                                    float angularSpeedDegPerSec,
+                                    int rotations);
+    void cancelLaserMotion();
+    void update();
+
+    bool isLaserDirectionMoveActive() const;
+    bool isLaserCircleDrawActive() const;
+    bool isLaserMotionActive() const;
+
 private:
     Servo camPan;
     Servo camTilt;
     Servo laserPan;
     Servo laserTilt;
+
+    bool servosAttached;
+    float currentLaserPanDeg;
+    float currentLaserTiltDeg;
+
+    bool directionMoveActive;
+    float directionTargetPanDeg;
+    float directionTargetTiltDeg;
+    float directionMoveSpeedDegPerSec;
+
+    bool circleDrawActive;
+    float circleCenterPanDeg;
+    float circleCenterTiltDeg;
+    float circleRadiusDeg;
+    float circleAngularSpeedDegPerSec;
+    int circleRequestedRotations;
+    float circleProgressDeg;
+
+    unsigned long lastMotionUpdateMs;
+
+    void applyLaserAngles(float panDeg, float tiltDeg);
+    void cancelDirectionMove();
+    void cancelCircleDraw();
 };
 
 #endif

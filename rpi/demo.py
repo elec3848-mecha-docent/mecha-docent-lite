@@ -5,7 +5,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Raspberry Pi demo runner")
     parser.add_argument(
         "--demo",
-        choices=["audio", "tts", "stt-to-tts", "tour", "serial-protocol"],
+        choices=["audio", "tts", "stt-to-tts", "tour", "serial-protocol", "screen"],
         default="stt-to-tts",
         help="Which demo to run.",
     )
@@ -88,6 +88,12 @@ def main() -> None:
         from demos.serial_protocol_demo import run_serial_protocol_demo
 
         run_serial_protocol_demo(port=args.port, baud=args.baud)
+        return
+
+    if args.demo == "screen":
+        from demos.screen_demo import run_screen_demo
+
+        run_screen_demo()
         return
 
     from demos.tour_demo import run_tour_demo
