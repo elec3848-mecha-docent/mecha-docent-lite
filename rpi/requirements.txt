@@ -1,3 +1,5 @@
 supertonic>=1.0.0
 sounddevice>=0.4.0
 faster-whisper>=1.0.0
+webrtcvad-wheels>=2.0.14
+scipy>=1.11.0

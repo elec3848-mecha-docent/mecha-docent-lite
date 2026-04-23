@@ -21,6 +21,16 @@ volatile unsigned long encoderLastMicros[kWheelCount] = {0, 0, 0, 0};
 volatile unsigned long encoderDeltaMicros[kWheelCount] = {0, 0, 0, 0};
 volatile int lastStateA[kWheelCount] = {LOW, LOW, LOW, LOW};
 
+long odomLastEncoderCount[kWheelCount] = {0, 0, 0, 0};
+float odomXMeter = 0.0f;
+float odomYMeter = 0.0f;
+float odomThetaRad = 0.0f;
+
+bool moveToActive = false;
+float moveToTargetXMeter = 0.0f;
+float moveToTargetYMeter = 0.0f;
+float moveToTargetYawRad = 0.0f;
+
 int targetPwm[kWheelCount] = {0, 0, 0, 0};
 int syncOffset[kWheelCount] = {0, 0, 0, 0};
 unsigned long moveStartMillis = 0;
@@ -37,6 +47,16 @@ int signOf(int value) {
         return -1;
     }
     return 0;
+}
+
+float normalizeAngleRad(float angleRad) {
+    while (angleRad > PI) {
+        angleRad -= 2.0f * PI;
+    }
+    while (angleRad < -PI) {
+        angleRad += 2.0f * PI;
+    }
+    return angleRad;
 }
 
 void writeSignedWheel(int pwmPin, int backwardPin, int forwardPin, int signedPwm) {
@@ -60,6 +80,42 @@ void writeSignedWheel(int pwmPin, int backwardPin, int forwardPin, int signedPwm
     analogWrite(pwmPin, 0);
 }
 
+int getPulsedWheelPwm(int signedPwm) {
+    const int direction = signOf(signedPwm);
+    if (direction == 0) {
+        return 0;
+    }
+
+    const int pwmAbs = abs(signedPwm);
+    if (MOTOR_MIN_EFFECTIVE_PWM <= 0 || pwmAbs >= MOTOR_MIN_EFFECTIVE_PWM) {
+        return signedPwm;
+    }
+
+    const unsigned long pulsePeriodMs = MOTOR_LOW_SPEED_PULSE_PERIOD_MS;
+    if (pulsePeriodMs == 0) {
+        return direction * MOTOR_MIN_EFFECTIVE_PWM;
+    }
+
+    const float duty = constrain(
+        (float)pwmAbs / (float)MOTOR_MIN_EFFECTIVE_PWM,
+        0.0f,
+        1.0f);
+    unsigned long onTimeMs = (unsigned long)(duty * (float)pulsePeriodMs);
+    if (onTimeMs == 0 && pwmAbs > 0) {
+        onTimeMs = 1;
+    }
+
+    if (onTimeMs >= pulsePeriodMs) {
+        return direction * MOTOR_MIN_EFFECTIVE_PWM;
+    }
+
+    const unsigned long phaseMs = millis() % pulsePeriodMs;
+    if (phaseMs < onTimeMs) {
+        return direction * MOTOR_MIN_EFFECTIVE_PWM;
+    }
+    return 0;
+}
+
 int getAppliedWheelPwm(int wheel) {
     const int direction = signOf(targetPwm[wheel]);
     if (direction == 0) {
@@ -79,22 +135,22 @@ void applyAllWheelOutputs() {
         FRONT_LEFT_PWM,
         FRONT_LEFT_BACKWARD,
         FRONT_LEFT_FORWARD,
-        getAppliedWheelPwm(kFrontLeft));
+        getPulsedWheelPwm(getAppliedWheelPwm(kFrontLeft)));
     writeSignedWheel(
         FRONT_RIGHT_PWM,
         FRONT_RIGHT_BACKWARD,
         FRONT_RIGHT_FORWARD,
-        getAppliedWheelPwm(kFrontRight));
+        getPulsedWheelPwm(getAppliedWheelPwm(kFrontRight)));
     writeSignedWheel(
         BACK_LEFT_PWM,
         BACK_LEFT_BACKWARD,
         BACK_LEFT_FORWARD,
-        getAppliedWheelPwm(kBackLeft));
+        getPulsedWheelPwm(getAppliedWheelPwm(kBackLeft)));
     writeSignedWheel(
         BACK_RIGHT_PWM,
         BACK_RIGHT_BACKWARD,
         BACK_RIGHT_FORWARD,
-        getAppliedWheelPwm(kBackRight));
+        getPulsedWheelPwm(getAppliedWheelPwm(kBackRight)));
 }
 
 bool wheelHasFreshRate(
@@ -181,8 +237,13 @@ void setupMotor() {
         encoderLastMicros[i] = now;
         encoderDeltaMicros[i] = 0;
         lastStateA[i] = LOW;
+        odomLastEncoderCount[i] = 0;
     }
     interrupts();
+
+    odomXMeter = 0.0f;
+    odomYMeter = 0.0f;
+    odomThetaRad = 0.0f;
 
     attachInterrupt(digitalPinToInterrupt(FRONT_LEFT_EN_A), frontLeftEncTrig, CHANGE);
     attachInterrupt(digitalPinToInterrupt(FRONT_RIGHT_EN_A), frontRightEncTrig, CHANGE);
@@ -194,20 +255,32 @@ void setupMotor() {
 }
 
 void move(int vx, int vy, int wz) {
-    targetPwm[kFrontLeft] = clampSignedPwm(vx - vy + wz);
-    targetPwm[kFrontRight] = clampSignedPwm(vx + vy - wz);
-    targetPwm[kBackLeft] = clampSignedPwm(vx + vy + wz);
-    targetPwm[kBackRight] = clampSignedPwm(vx - vy - wz);
+    // +vx is forward, +vy is left, +wz is CCW.
+    const int nextTargetPwm[kWheelCount] = {
+        clampSignedPwm(vx - vy - wz),
+        clampSignedPwm(vx + vy + wz),
+        clampSignedPwm(vx + vy - wz),
+        clampSignedPwm(vx - vy + wz)};
 
+    bool shouldResetSync = false;
     for (int i = 0; i < kWheelCount; ++i) {
-        syncOffset[i] = 0;
+        if (signOf(nextTargetPwm[i]) != signOf(targetPwm[i])) {
+            shouldResetSync = true;
+        }
+        targetPwm[i] = nextTargetPwm[i];
     }
 
-    moveStartMillis = millis();
+    if (shouldResetSync) {
+        for (int i = 0; i < kWheelCount; ++i) {
+            syncOffset[i] = 0;
+        }
+        moveStartMillis = millis();
+    }
     applyAllWheelOutputs();
 }
 
 void stopRobot() {
+    moveToActive = false;
     for (int i = 0; i < kWheelCount; ++i) {
         targetPwm[i] = 0;
         syncOffset[i] = 0;
@@ -219,6 +292,7 @@ void resetEncoderCounts() {
     noInterrupts();
     for (int i = 0; i < kWheelCount; ++i) {
         encoderCount[i] = 0;
+        odomLastEncoderCount[i] = 0;
     }
     interrupts();
 }
@@ -350,4 +424,156 @@ void motorSyncService() {
     }
 
     applyAllWheelOutputs();
+}
+
+void odometryService() {
+    long counts[kWheelCount] = {0, 0, 0, 0};
+
+    noInterrupts();
+    for (int i = 0; i < kWheelCount; ++i) {
+        counts[i] = encoderCount[i];
+    }
+    interrupts();
+
+    const float metersPerTick =
+        (ODOM_TICKS_PER_REV > 0.0f) ? (2.0f * PI * ODOM_WHEEL_RADIUS_M) / ODOM_TICKS_PER_REV : 0.0f;
+    if (metersPerTick <= 0.0f) {
+        return;
+    }
+
+    const long deltaFlTicks = counts[kFrontLeft] - odomLastEncoderCount[kFrontLeft];
+    const long deltaFrTicks = counts[kFrontRight] - odomLastEncoderCount[kFrontRight];
+    const long deltaBlTicks = counts[kBackLeft] - odomLastEncoderCount[kBackLeft];
+    const long deltaBrTicks = counts[kBackRight] - odomLastEncoderCount[kBackRight];
+
+    for (int i = 0; i < kWheelCount; ++i) {
+        odomLastEncoderCount[i] = counts[i];
+    }
+
+    if (deltaFlTicks == 0 && deltaFrTicks == 0 && deltaBlTicks == 0 && deltaBrTicks == 0) {
+        return;
+    }
+
+    const float sFl = (float)deltaFlTicks * ODOM_ENC_SIGN_FL * metersPerTick;
+    const float sFr = (float)deltaFrTicks * ODOM_ENC_SIGN_FR * metersPerTick;
+    const float sBl = (float)deltaBlTicks * ODOM_ENC_SIGN_BL * metersPerTick;
+    const float sBr = (float)deltaBrTicks * ODOM_ENC_SIGN_BR * metersPerTick;
+
+    const float dXBody = (-sFl + sFr - sBl + sBr) * 0.25f;
+    const float dYBody = (sFl + sFr - sBl - sBr) * 0.25f;
+
+    const float kRotArm = ODOM_HALF_LENGTH_M + ODOM_HALF_WIDTH_M;
+    const float dTheta =
+        (kRotArm > 0.0f) ? ((sFl + sFr + sBl + sBr) / (4.0f * kRotArm)) : 0.0f;
+
+    // Rotate incremental robot-frame motion into world frame using midpoint heading.
+    const float midTheta = odomThetaRad + 0.5f * dTheta;
+    const float cosMid = cos(midTheta);
+    const float sinMid = sin(midTheta);
+    const float dXWorld = dXBody * cosMid - dYBody * sinMid;
+    const float dYWorld = dXBody * sinMid + dYBody * cosMid;
+
+    odomXMeter += dXWorld;
+    odomYMeter += dYWorld;
+    odomThetaRad = normalizeAngleRad(odomThetaRad + dTheta);
+}
+
+void resetOdometryPose() {
+    noInterrupts();
+    for (int i = 0; i < kWheelCount; ++i) {
+        odomLastEncoderCount[i] = encoderCount[i];
+    }
+    interrupts();
+
+    odomXMeter = 0.0f;
+    odomYMeter = 0.0f;
+    odomThetaRad = 0.0f;
+}
+
+void getOdometryPose(float &xMeters, float &yMeters, float &thetaRad) {
+    xMeters = odomXMeter;
+    yMeters = odomYMeter;
+    thetaRad = odomThetaRad;
+}
+
+float getOdometryXMeters() {
+    return odomXMeter;
+}
+
+float getOdometryYMeters() {
+    return odomYMeter;
+}
+
+float getOdometryThetaRad() {
+    return odomThetaRad;
+}
+
+void moveTo(float targetXMeters, float targetYMeters, float targetYawRad) {
+    moveToTargetXMeter = targetXMeters;
+    moveToTargetYMeter = targetYMeters;
+    moveToTargetYawRad = normalizeAngleRad(targetYawRad);
+    moveToActive = true;
+}
+
+void moveToService() {
+    if (!moveToActive) {
+        return;
+    }
+
+    float currentX = 0.0f;
+    float currentY = 0.0f;
+    float currentYaw = 0.0f;
+    getOdometryPose(currentX, currentY, currentYaw);
+
+    const float dxWorld = moveToTargetXMeter - currentX;
+    const float dyWorld = moveToTargetYMeter - currentY;
+    float dyaw = moveToTargetYawRad - currentYaw;
+    if (dyaw > 3.14159f) {
+        dyaw -= 6.28318f;
+    } else if (dyaw < -3.14159f) {
+        dyaw += 6.28318f;
+    }
+
+    const float posErr = sqrt(dxWorld * dxWorld + dyWorld * dyWorld);
+    if (posErr <= MOVETO_POS_TOLERANCE_M && abs(dyaw) <= MOVETO_YAW_TOLERANCE_RAD) {
+        moveToActive = false;
+        stopRobot();
+        return;
+    }
+
+    // Convert world-frame XY error to robot frame so vx/vy are body-relative.
+    const float cosYaw = cos(currentYaw);
+    const float sinYaw = sin(currentYaw);
+    const float dxBody = cosYaw * dxWorld + sinYaw * dyWorld;
+    const float dyBody = -sinYaw * dxWorld + cosYaw * dyWorld;
+
+    const float combinedErr = max(posErr, abs(dyaw) * MOVETO_YAW_EQUIV_M);
+
+    int speedPwm = MOVETO_SLOW_PWM;
+    if (combinedErr > MOVETO_FAST_DISTANCE_M) {
+        speedPwm = MOVETO_FAST_PWM;
+    } else if (combinedErr > MOVETO_MEDIUM_DISTANCE_M) {
+        speedPwm = MOVETO_MEDIUM_PWM;
+    }
+
+    const float maxComponent = max(max(abs(dxBody), abs(dyBody)), abs(dyaw));
+    if (maxComponent <= 0.0001f || speedPwm <= 0) {
+        move(0, 0, 0);
+        return;
+    }
+
+    const float scale = (float)speedPwm / maxComponent;
+    const int vx = clampSignedPwm((int)round(dxBody * scale));
+    const int vy = clampSignedPwm((int)round(dyBody * scale));
+    const int wz = clampSignedPwm((int)round(dyaw * scale));
+
+    move(vx, vy, wz);
+}
+
+bool isMoveToActive() {
+    return moveToActive;
+}
+
+void cancelMoveTo() {
+    stopRobot();
 }

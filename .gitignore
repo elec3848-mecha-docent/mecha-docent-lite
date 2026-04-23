@@ -163,3 +163,4 @@ cython_debug/
 Thumbs.db
 
 */.pio
+*.wav

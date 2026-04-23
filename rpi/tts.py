@@ -8,6 +8,8 @@ DEFAULT_VOICE_NAME = "F4"
 DEFAULT_SAMPLE_RATE = 48000
 
 
+sd.default.device = (1, 1)
+
 def create_tts(auto_download: bool = True) -> TTS:
     return TTS(auto_download=auto_download)
 
