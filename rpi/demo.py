@@ -52,6 +52,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=115200,
         help="Serial baud rate for --demo serial-protocol.",
     )
+    parser.add_argument(
+        "--face-tracking",
+        action="store_true",
+        default=True,
+        help="Enable camera-based face tracking for the screen demo (default: True).",
+    )
+    parser.add_argument(
+        "--no-face-tracking",
+        action="store_false",
+        dest="face_tracking",
+        help="Disable camera-based face tracking for the screen demo.",
+    )
     return parser
 
 
@@ -93,7 +105,7 @@ def main() -> None:
     if args.demo == "screen":
         from demos.screen_demo import run_screen_demo
 
-        run_screen_demo()
+        run_screen_demo(face_tracking=args.face_tracking)
         return
 
     from demos.tour_demo import run_tour_demo

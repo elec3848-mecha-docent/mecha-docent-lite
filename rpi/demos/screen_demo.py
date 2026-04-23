@@ -1,44 +1,18 @@
-"""demos/screen_demo.py — Eye-animation demo."""
+"""Screen demo: animated eyes with optional face-tracking."""
 
-import threading
-import time
-
-from screen.display import Screen
-from screen.eyes import Eyes
+from screen.eye_movements import run_eye_animation_demo, run_face_tracking_demo
 
 
-def _loop(eyes: Eyes) -> None:
-    eyes.init()
-    time.sleep(1.0)  # let the window settle
+def run_screen_demo(width: int = 1920, height: int = 1080, face_tracking: bool = False) -> None:
+    """Run the fullscreen eye demo.
 
-    while True:
-        time.sleep(2.5)
-        eyes.blink()
-        time.sleep(0.15)
-
-        eyes.look("left", duration=0.25)
-        time.sleep(0.8)
-
-        eyes.look("right", duration=0.3)
-        time.sleep(0.8)
-
-        eyes.look("centre", duration=0.2)
-        time.sleep(0.5)
-
-        eyes.blink(0.07)
-        time.sleep(0.12)
-        eyes.blink(0.07)
-        time.sleep(0.5)
-
-        eyes.squint(0.2)
-        time.sleep(1.0)
-
-        eyes.open(0.2)
-        time.sleep(1.5)
-
-
-def run_screen_demo() -> None:
-    screen = Screen()
-    eyes = Eyes(screen)
-    threading.Thread(target=_loop, args=(eyes,), daemon=True).start()
-    screen.run()
+    Parameters
+    ----------
+    face_tracking:
+        When True, eyes follow the nearest detected face via the camera.
+        When False (default), the pre-scripted animation loop runs instead.
+    """
+    if face_tracking:
+        run_face_tracking_demo(width=width, height=height)
+    else:
+        run_eye_animation_demo(width=width, height=height)
