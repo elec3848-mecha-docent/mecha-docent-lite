@@ -2,6 +2,8 @@
 
 A museum guide robot system combining an Arduino-based mobile platform with an intelligent Raspberry Pi brain. The robot navigates between exhibits, delivers contextual explanations powered by a local LLM, and adapts its tour in real time based on visitor feedback.
 
+<img width="1079" height="601" alt="image" src="https://github.com/user-attachments/assets/1467a8ef-a0f8-4f4a-baad-ad496fef0fc4" />
+
 ---
 
 ## Table of Contents
