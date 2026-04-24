@@ -23,8 +23,8 @@
       "y": -0.10,
       "yaw": -2,
       "laser_circle": {
-        "pan_deg": -10.0,
-        "tilt_deg": -2.0,
+        "pan_deg": 95,
+        "tilt_deg": 155,
         "radius_deg": 9.0
       }
     },
@@ -34,9 +34,9 @@
       "y": 1.60,
       "yaw": -2.50,
       "laser_circle": {
-        "pan_deg": 15.0,
-        "tilt_deg": 8.0,
-        "radius_deg": 6.0
+        "pan_deg": 10,
+        "tilt_deg": 160,
+        "radius_deg": 15
       }
     },
     {
@@ -45,9 +45,9 @@
       "y": 1.50,
       "yaw": -3.00,
       "laser_circle": {
-        "pan_deg": -14.0,
-        "tilt_deg": 10.0,
-        "radius_deg": 6.5
+        "pan_deg": 170,
+        "tilt_deg": 45,
+        "radius_deg": 12
       }
     },
     {
@@ -56,9 +56,9 @@
       "y": 1.60,
       "yaw": -1.20,
       "laser_circle": {
-        "pan_deg": 8.0,
-        "tilt_deg": 12.0,
-        "radius_deg": 7.5
+        "pan_deg": 130,
+        "tilt_deg": 150,
+        "radius_deg": 10
       }
     }
   ]
