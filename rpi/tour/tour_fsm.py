@@ -104,6 +104,15 @@ class DeterministicTourGuide:
 
             self._speak(self._line("tour_complete"))
             print("[FSM] Tour complete")
+            
+            # Move robot back to home position (0, 0, 0)
+            if self.serial_client is not None:
+                try:
+                    print("[FSM] Moving robot back to home position (0, 0, 0)")
+                    self.serial_client.move_to_and_wait(x_m=0.0, y_m=0.0, yaw_rad=0.0, timeout_sec=90.0)
+                    print("[FSM] Robot returned to home position")
+                except Exception as exc:
+                    print(f"[FSM] Failed to return robot to home position: {exc}")
         finally:
             self._cancel_laser_timer()
             if self.serial_client is not None:

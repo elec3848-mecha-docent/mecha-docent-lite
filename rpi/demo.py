@@ -6,7 +6,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--demo",
         choices=["audio", "tts", "stt-to-tts", "tour", "serial-protocol", "screen"],
-        default="stt-to-tts",
+        default="tour",
         help="Which demo to run.",
     )
     parser.add_argument(

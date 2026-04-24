@@ -3,7 +3,9 @@
 import os
 import threading
 import time
+import random
 from pathlib import Path
+from typing import Callable
 
 import cv2
 import numpy as np
@@ -209,13 +211,59 @@ def _face_tracking_thread(
     max_offset_x: float,
     max_offset_y: float,
     poll_interval: float,
+    mode_provider: Callable[[], str | None] | None,
 ) -> None:
     """Background thread: capture frames, detect faces, move eye group."""
+    def _set_expression(expression: str, duration: float = 0.15) -> None:
+        if expression == "happy":
+            screen.move_all(
+                lid_tl_pos=(EYE_L_X, LID_TOP_OPEN_Y),
+                lid_tr_pos=(EYE_R_X, LID_TOP_OPEN_Y),
+                lid_bl_pos=(EYE_L_X, LID_BOTTOM_HAPPY_Y),
+                lid_br_pos=(EYE_R_X, LID_BOTTOM_HAPPY_Y),
+                duration=duration,
+            )
+            return
+        if expression == "squint":
+            screen.move_all(
+                lid_tl_pos=(EYE_L_X, LID_TOP_SQUINT_Y),
+                lid_tr_pos=(EYE_R_X, LID_TOP_SQUINT_Y),
+                lid_bl_pos=(EYE_L_X, LID_BOTTOM_SQUINT_Y),
+                lid_br_pos=(EYE_R_X, LID_BOTTOM_SQUINT_Y),
+                duration=duration,
+            )
+            return
+        screen.move_all(
+            lid_tl_pos=(EYE_L_X, LID_TOP_OPEN_Y),
+            lid_tr_pos=(EYE_R_X, LID_TOP_OPEN_Y),
+            lid_bl_pos=(EYE_L_X, LID_BOTTOM_OPEN_Y),
+            lid_br_pos=(EYE_R_X, LID_BOTTOM_OPEN_Y),
+            duration=duration,
+        )
+
+    def _expression_for_mode(mode: str | None, mode_entered_at: float, now: float) -> str:
+        if mode == "MOVE_TO_ARTWORK":
+            return "squint"
+        if mode in {"GREETING", "TOUR_COMPLETE"}:
+            return "happy"
+        if mode == "ARTWORK_TALK" and now - mode_entered_at <= 4.0:
+            return "happy"
+        return "open"
+
     # Try to load DNN model; fall back to Haar Cascade if unavailable
     dnn_net = _load_dnn_model()
     use_dnn = dnn_net is not None
     method = "DNN" if use_dnn else "Haar Cascade"
     print(f"[FaceTracker] Using {method} for face detection")
+
+    current_mode: str | None = None
+    mode_entered_at = time.monotonic()
+    current_expression = "open"
+    next_blink_at = time.monotonic() + random.uniform(2.0, 4.0)
+    blink_reopen_at = 0.0
+    is_blinking = False
+
+    _set_expression(current_expression, duration=0.0)
 
     print(f"[FaceTracker] Starting camera ({cam_width}x{cam_height})...")
     with Camera(width=cam_width, height=cam_height) as cam:
@@ -223,6 +271,39 @@ def _face_tracking_thread(
         frame_count = 0
         while True:
             start_time = time.time()
+            now = time.monotonic()
+
+            if mode_provider is not None:
+                try:
+                    latest_mode = mode_provider()
+                except Exception as e:
+                    print(f"[FaceTracker] Mode provider failed: {e}")
+                    latest_mode = None
+                if latest_mode != current_mode:
+                    current_mode = latest_mode
+                    mode_entered_at = now
+
+            target_expression = _expression_for_mode(current_mode, mode_entered_at, now)
+            if target_expression != current_expression and not is_blinking:
+                current_expression = target_expression
+                _set_expression(current_expression)
+
+            if is_blinking and now >= blink_reopen_at:
+                is_blinking = False
+                _set_expression(current_expression, duration=0.08)
+
+            if (not is_blinking) and now >= next_blink_at:
+                is_blinking = True
+                blink_reopen_at = now + 0.10
+                next_blink_at = now + random.uniform(2.0, 4.0)
+                screen.move_all(
+                    lid_tl_pos=(EYE_L_X, LID_TOP_SHUT_Y),
+                    lid_tr_pos=(EYE_R_X, LID_TOP_SHUT_Y),
+                    lid_bl_pos=(EYE_L_X, LID_BOTTOM_SHUT_Y),
+                    lid_br_pos=(EYE_R_X, LID_BOTTOM_SHUT_Y),
+                    duration=0.06,
+                )
+
             frame = cam.capture_array()  # RGB uint8
 
             # Quick check if frame is empty
@@ -270,6 +351,13 @@ def _face_tracking_thread(
                 if int(time.time()) % 2 == 0:
                     print(f"[FaceTracker] No faces detected. Proc: {processing_time:.1f}ms")
 
+                # Recenter when no face is visible.
+                current_x, current_y = screen.get_group_offset()
+                dx = -current_x
+                dy = -current_y
+                if abs(dx) > 2 or abs(dy) > 2:
+                    screen.move_group(dx=dx, dy=dy, duration=poll_interval * 3)
+
             time.sleep(poll_interval)
 
 
@@ -281,11 +369,13 @@ def run_face_tracking(
     max_offset_x: float = 400,
     max_offset_y: float = 80,
     poll_interval: float = 0.1,
+    mode_provider: Callable[[], str | None] | None = None,
 ) -> threading.Thread:
     """Start face-tracking eye movement in a daemon background thread.
 
     The eyes follow the largest detected face in the camera frame. When no
-    face is visible the eyes remain at their last position.
+    face is visible the eyes return to center. Lids blink periodically and
+    can switch expression based on the optional mode provider.
 
     Parameters
     ----------
@@ -299,6 +389,10 @@ def run_face_tracking(
         Maximum vertical eye displacement in pixels (maps to frame edge).
     poll_interval:
         Seconds between camera captures / position updates.
+    mode_provider:
+        Optional callable returning a mode/state name (for example
+        "GREETING", "MOVE_TO_ARTWORK", "ARTWORK_TALK", "TOUR_COMPLETE")
+        used to drive mode-specific expressions.
 
     Returns
     -------
@@ -315,7 +409,7 @@ def run_face_tracking(
 
     thread = threading.Thread(
         target=_face_tracking_thread,
-        args=(screen, cam_width, cam_height, max_offset_x, max_offset_y, poll_interval),
+        args=(screen, cam_width, cam_height, max_offset_x, max_offset_y, poll_interval, mode_provider),
         daemon=True,
     )
     thread.start()
