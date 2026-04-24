@@ -1,3 +1,11 @@
+/**
+ * @file laser.h
+ * @brief Simple on/off wrapper for the laser module.
+ *
+ * :class:`LaserController` drives a laser diode module via a single digital
+ * output pin (default: A10, declared in config.h).  State is cached
+ * internally so :func:`isOn()` never needs to read back the pin.
+ */
 #ifndef LASER_CONTROL_H
 #define LASER_CONTROL_H
 

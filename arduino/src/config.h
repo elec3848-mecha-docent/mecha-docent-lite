@@ -1,3 +1,32 @@
+/**
+ * @file config.h
+ * @brief Central hardware configuration for the MechaDocent-Lite Arduino firmware.
+ *
+ * All pin assignments, odometry constants, and motion-tuning parameters are
+ * collected here so that hardware changes require edits in only one place.
+ *
+ * Pin groups
+ * ----------
+ * - Motor driver: PWM, direction, and quadrature encoder pins for four
+ *   mecanum wheels (back-left, back-right, front-left, front-right).
+ * - Servos: camera pan (25), camera tilt (28), laser pan (29), laser tilt (30).
+ * - Laser: A10 (digital output).
+ *
+ * Odometry constants
+ * ------------------
+ * - WHEEL_RADIUS_M      : 0.078 m
+ * - TICKS_PER_REV       : 650 encoder ticks per wheel revolution
+ * - HALF_WHEELBASE_M    : 0.105 m  (half the wheel-to-wheel length)
+ * - HALF_TRACKWIDTH_M   : 0.083 m  (half the wheel-to-wheel width)
+ *
+ * Motion tuning
+ * -------------
+ * - MOTOR_SYNC_DEADBAND_US  : 40 µs  (encoder pulse tolerance before correction)
+ * - MOTOR_SYNC_MAX_CORR     : 60     (max PWM correction per sync cycle)
+ * - MOVETO_POS_TOLERANCE_M  : 0.03 m
+ * - MOVETO_YAW_TOLERANCE_RAD: 0.08 rad
+ * - Speed bands (PWM): FAST=80, MEDIUM=50, SLOW=30
+ */
 #pragma once
 
 #include <Arduino.h>

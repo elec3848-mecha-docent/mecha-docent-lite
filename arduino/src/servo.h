@@ -1,3 +1,27 @@
+/**
+ * @file servo.h
+ * @brief Four-servo controller for camera and laser pan/tilt rigs.
+ *
+ * :class:`ServoController` manages two pairs of servos:
+ * - **Camera**: pan (pin 25) and tilt (pin 28) for the vision camera.
+ * - **Laser**: pan (pin 29) and tilt (pin 30) for the laser pointer.
+ *
+ * All angles are in degrees (0–180°; midpoint 90°).
+ *
+ * Smooth animation
+ * ----------------
+ * Direction moves and circle patterns use cubic ease-in-out (smoothstep)
+ * interpolation.  Call :func:`ServoController::update()` once per
+ * ``loop()`` iteration to advance the animation.
+ *
+ * Laser animation modes
+ * ---------------------
+ * - **Direction move** (`moveLaserMidpointToDirection`): move the laser to
+ *   a pan/tilt offset from centre at a given angular speed (deg/s).
+ * - **Circle draw** (`drawLaserCircleAtDirection`): trace a parametric
+ *   circle of a given radius for N full rotations.  The fixed draw speed
+ *   is set by the caller in `main.cpp` (default 720 deg/s).
+ */
 #ifndef SERVO_CONTROL_H
 #define SERVO_CONTROL_H
 

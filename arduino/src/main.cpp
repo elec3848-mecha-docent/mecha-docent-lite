@@ -1,3 +1,34 @@
+/**
+ * @file main.cpp
+ * @brief Serial command parser and dispatcher for the MechaDocent-Lite robot.
+ *
+ * Listens on the USB serial port at 115200 baud for newline-terminated ASCII
+ * commands and dispatches them to the motor, servo, and laser controllers.
+ *
+ * Supported commands
+ * ------------------
+ * | Command            | Arguments                        | Description                            |
+ * |--------------------|----------------------------------|----------------------------------------|
+ * | `vx vy wz`         | int int int  (−255..255)         | Direct mecanum velocity                |
+ * | `goto`             | x*100  y*100  yaw*57.2958 (int)  | Move to pose (cm-int / decideg-int)    |
+ * | `odom_reset`       | —                                | Zero odometry                          |
+ * | `goto_cancel`      | —                                | Cancel active moveTo                   |
+ * | `stop`             | —                                | Hard stop all motors                   |
+ * | `servo_cam`        | pan tilt  (0..180)               | Set camera servo angles                |
+ * | `servo_laser`      | pan tilt  (0..180)               | Set laser servo angles                 |
+ * | `laser_dir`        | panOff tiltOff speed             | Smooth laser move at deg/s             |
+ * | `laser_circle`     | pan tilt radius rotations        | Draw laser circle (speed = 720 deg/s)  |
+ * | `laser_on/off`     | —                                | Laser power                            |
+ * | `laser_cancel`     | —                                | Cancel laser animation                 |
+ *
+ * Status replies
+ * --------------
+ * The firmware emits periodic status lines that the Raspberry Pi can poll:
+ * - `POSE=x,y,yaw`   — odometry pose
+ * - `GOTO=MOVING`    — moveTo in progress
+ * - `GOTO=IDLE`      — moveTo complete
+ * - `ENC=fl,fr,bl,br`— raw encoder counts
+ */
 #include <Arduino.h>
 
 #include "config.h"

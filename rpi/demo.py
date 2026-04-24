@@ -5,7 +5,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Raspberry Pi demo runner")
     parser.add_argument(
         "--demo",
-        choices=["audio", "tts", "stt-to-tts", "tour", "serial-protocol", "screen"],
+        choices=[
+            "audio",
+            "tts",
+            "stt-to-tts",
+            "tour",
+            "serial-protocol",
+            "screen",
+            "apriltag",
+            "llm",
+        ],
         default="tour",
         help="Which demo to run.",
     )
@@ -69,6 +78,94 @@ def build_parser() -> argparse.ArgumentParser:
         dest="face_tracking",
         help="Disable camera-based face tracking for the screen demo.",
     )
+    parser.add_argument(
+        "--camera-width",
+        type=int,
+        default=1280,
+        help="Camera width for --demo apriltag.",
+    )
+    parser.add_argument(
+        "--camera-height",
+        type=int,
+        default=720,
+        help="Camera height for --demo apriltag.",
+    )
+    parser.add_argument(
+        "--calibration",
+        default="",
+        help="Camera calibration YAML path for --demo apriltag.",
+    )
+    parser.add_argument(
+        "--tag-map",
+        default="",
+        help="Tag map JSON path for --demo apriltag.",
+    )
+    parser.add_argument(
+        "--window-name",
+        default="Live Localization",
+        help="OpenCV window title for --demo apriltag.",
+    )
+    parser.add_argument(
+        "--llm-model",
+        default="models/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+        help="Path to GGUF model file for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-exhibits",
+        default="exhibits.json",
+        help="Path to exhibits JSON for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-output-path",
+        default="output.json",
+        help="Output packet JSON path for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-profile-path",
+        default="profile_current.json",
+        help="Visitor profile output path for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-silence-timeout",
+        type=int,
+        default=20,
+        help="Silence timeout (seconds) for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-chat-format",
+        default=None,
+        help="Optional explicit chat format for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-n-ctx",
+        type=int,
+        default=2048,
+        help="Context window size for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-n-threads",
+        type=int,
+        default=None,
+        help="Thread count for --demo llm (default: min(4, cpu_count)).",
+    )
+    parser.add_argument(
+        "--llm-n-batch",
+        type=int,
+        default=128,
+        help="Batch size for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-max-tokens",
+        type=int,
+        default=300,
+        help="Max generation tokens for --demo llm.",
+    )
+    parser.add_argument(
+        "--llm-temperature",
+        type=float,
+        default=0.35,
+        help="Sampling temperature for --demo llm.",
+    )
     return parser
 
 
@@ -111,6 +208,36 @@ def main() -> None:
         from demos.screen_demo import run_screen_demo
 
         run_screen_demo(face_tracking=args.face_tracking)
+        return
+
+    if args.demo == "apriltag":
+        from demos.apriltag_demo import run_apriltag_demo
+
+        run_apriltag_demo(
+            camera_width=args.camera_width,
+            camera_height=args.camera_height,
+            calibration_path=args.calibration or None,
+            tag_map_path=args.tag_map or None,
+            window_name=args.window_name,
+        )
+        return
+
+    if args.demo == "llm":
+        from demos.llm_demo import run_llm_demo
+
+        run_llm_demo(
+            model_path=args.llm_model,
+            exhibits_path=args.llm_exhibits,
+            output_path=args.llm_output_path,
+            profile_path=args.llm_profile_path,
+            silence_timeout=args.llm_silence_timeout,
+            chat_format=args.llm_chat_format,
+            n_ctx=args.llm_n_ctx,
+            n_threads=args.llm_n_threads,
+            n_batch=args.llm_n_batch,
+            max_tokens=args.llm_max_tokens,
+            temperature=args.llm_temperature,
+        )
         return
 
     from demos.tour_demo import run_tour_demo

@@ -1,3 +1,21 @@
+"""Thread-safe Python client for the Arduino serial protocol.
+
+:class:`SerialProtocolClient` wraps a ``pyserial`` connection and exposes
+high-level methods for every command understood by the Arduino firmware
+(see ``arduino/src/main.cpp``).
+
+All commands are sent as newline-terminated ASCII strings at 115200 baud.
+A re-entrant lock (``_io_lock``) makes it safe to call methods from
+multiple threads simultaneously (e.g., a localization thread sending
+odometry corrections while the main thread issues movement commands).
+
+Blocking helpers
+----------------
+:meth:`~SerialProtocolClient.move_to_and_wait`
+    Sends a ``goto`` command and polls for ``GOTO=IDLE`` in the Arduino’s
+    reply stream.  Retries once if no activity is detected within the first
+    5 seconds.
+"""
 import threading
 import time
 from collections.abc import Callable
