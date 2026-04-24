@@ -1,3 +1,4 @@
+import subprocess
 import time
 from typing import Any
 
@@ -9,6 +10,23 @@ from tour.tour_config import AudioConfig
 DEFAULT_AUDIO_CONFIG = AudioConfig()
 DEFAULT_VOICE_NAME = "F4"
 DEFAULT_SAMPLE_RATE = DEFAULT_AUDIO_CONFIG.sample_rate
+
+
+def _set_system_volume_max(card: int | None = DEFAULT_AUDIO_CONFIG.output_device) -> None:
+    """Set ALSA master volume to 100% for the given card."""
+    card_arg = [] if card is None else ["-c", str(card)]
+    for control in ("Master", "PCM", "Speaker"):
+        try:
+            subprocess.run(
+                ["amixer", *card_arg, "sset", control, "100%"],
+                check=False,
+                capture_output=True,
+            )
+        except FileNotFoundError:
+            break  # amixer not available, skip silently
+
+
+_set_system_volume_max()
 
 def create_tts(auto_download: bool = True) -> TTS:
     return TTS(auto_download=auto_download)
@@ -47,6 +65,11 @@ def play_audio(wav: Any, sample_rate: int = DEFAULT_SAMPLE_RATE) -> None:
         # Assuming wav is (channels, samples) based on wav.T usage
         silence_padded = np.zeros((wav.shape[0], padding_samples), dtype=wav.dtype)
         padded_wav = np.concatenate([silence_padded, wav, silence_padded], axis=1)
+
+    # Normalize to peak amplitude for full volume playback
+    peak = np.max(np.abs(padded_wav))
+    if peak > 0:
+        padded_wav = (padded_wav / peak * 0.99).astype(padded_wav.dtype)
 
     # Use a larger buffer size (blocksize) to prevent mid-speech dropouts/stuttering on RPi
     # This addresses hardware/OS scheduling jitter.
